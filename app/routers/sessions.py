@@ -1,17 +1,14 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import FocusSession
+from app.router_utils import get_course_or_404, timestamp_now
 from app.schemas import SessionCreate, SessionOut, StatsOut
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
-
-
-def _timestamp_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _completed_local_date(timestamp: str):
@@ -35,11 +32,13 @@ def _calculate_day_streak(completed_at_values: list[str]) -> int:
 
 @router.post("", response_model=SessionOut, status_code=201)
 def create_session(data: SessionCreate, db: Session = Depends(get_db)):
+    get_course_or_404(db, data.course_id)
     session = FocusSession(
+        course_id=data.course_id,
         duration_seconds=data.duration_seconds,
         mode=data.mode,
         subject=data.subject or None,
-        completed_at=_timestamp_now(),
+        completed_at=timestamp_now(),
     )
     db.add(session)
     db.commit()
@@ -48,13 +47,15 @@ def create_session(data: SessionCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/stats", response_model=StatsOut)
-def get_session_stats(db: Session = Depends(get_db)):
-    sessions = db.query(FocusSession).all()
+def get_session_stats(course_id: int, db: Session = Depends(get_db)):
+    course = get_course_or_404(db, course_id)
+    sessions = db.query(FocusSession).filter(FocusSession.course_id == course_id).all()
     total_seconds = sum(session.duration_seconds for session in sessions)
     completed_at_values = [session.completed_at for session in sessions]
 
     return StatsOut(
-        hours_studied=round(total_seconds / 3600, 2),
+        hours_studied=round(total_seconds / 3600.0, 2),
         session_count=len(sessions),
         day_streak=_calculate_day_streak(completed_at_values),
+        course_name=course.name,
     )
