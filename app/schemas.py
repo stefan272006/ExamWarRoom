@@ -1,13 +1,14 @@
-from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
 
 
 # ---- Exams ----
 
 class ExamCreate(BaseModel):
-    name: str
-    subject: str
-    exam_date: str
+    name: str = Field(min_length=1)
+    subject: str = Field(min_length=1)
+    exam_date: str = Field(min_length=1)
 
 
 class ExamUpdate(BaseModel):
@@ -28,9 +29,12 @@ class ExamOut(BaseModel):
 
 # ---- Focus Sessions ----
 
+FocusMode = Literal["pomodoro", "short_break", "long_break", "deep_focus"]
+
+
 class SessionCreate(BaseModel):
-    duration_seconds: int
-    mode: str
+    duration_seconds: int = Field(gt=0)
+    mode: FocusMode
     subject: Optional[str] = None
 
 
@@ -53,7 +57,7 @@ class StatsOut(BaseModel):
 # ---- Notes ----
 
 class NoteCreate(BaseModel):
-    text: str
+    text: str = Field(min_length=1)
 
 
 class NoteOut(BaseModel):
@@ -67,7 +71,7 @@ class NoteOut(BaseModel):
 # ---- Study Progress ----
 
 class ProgressUpdate(BaseModel):
-    progress_pct: int
+    progress_pct: int = Field(ge=0, le=100)
 
 
 class ProgressOut(BaseModel):
