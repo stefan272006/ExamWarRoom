@@ -557,16 +557,38 @@
     .inline-form-actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
 
     /* Progress */
-    .progress-item { margin-bottom: 1.1rem; }
+    .progress-item { margin-bottom: 1rem; }
     .progress-item:last-child { margin-bottom: 0; }
-    .progress-label { display: flex; justify-content: space-between; margin-bottom: 0.45rem; }
-    .progress-label span:first-child { font-size: 0.82rem; }
-    .progress-label span:last-child { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
-    .progress-pct-input { width: 50px; background: var(--surface-raised); border: 1px solid var(--border); color: var(--text); font-family: var(--font-mono); font-size: 0.72rem; padding: 0.12rem 0.3rem; text-align: right; outline: none; transition: border-color 0.2s ease; }
-    .progress-pct-input:focus { border-color: var(--amber-dim); }
+    .progress-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; gap: 0.5rem; }
+    .progress-label-left { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
+    .progress-label-left span { font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .progress-track { height: 3px; background: var(--border); position: relative; overflow: hidden; }
     .progress-fill { height: 100%; background: var(--amber); transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1); position: relative; }
     .progress-fill::after { content: ''; position: absolute; right: 0; top: -1px; width: 5px; height: 5px; background: var(--amber); border-radius: 50%; }
+    .progress-fill.c0 { background: var(--red); }
+    .progress-fill.c0::after { background: var(--red); }
+    .progress-fill.c1 { background: var(--amber); }
+    .progress-fill.c1::after { background: var(--amber); }
+    .progress-fill.c2 { background: var(--green); }
+    .progress-fill.c2::after { background: var(--green); }
+    .confidence-tag { font-family: var(--font-mono); font-size: 0.65rem; padding: 0.1rem 0.4rem; cursor: pointer; border: 1px solid; border-radius: 2px; background: none; transition: all 0.18s ease; white-space: nowrap; line-height: 1.4; flex-shrink: 0; }
+    .confidence-tag.c0 { color: var(--red); border-color: var(--red); }
+    .confidence-tag.c0:hover { background: rgba(196,92,74,0.12); }
+    .confidence-tag.c1 { color: var(--amber); border-color: var(--amber-dim); }
+    .confidence-tag.c1:hover { background: var(--amber-glow); }
+    .confidence-tag.c2 { color: var(--green); border-color: var(--green); }
+    .confidence-tag.c2:hover { background: rgba(107,158,107,0.12); }
+    .progress-delete-btn { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-dim); background: none; border: none; cursor: pointer; padding: 0 0.15rem; line-height: 1; flex-shrink: 0; transition: color 0.15s ease; }
+    .progress-delete-btn:hover { color: var(--red); }
+    .progress-item { transition: opacity 0.3s ease; }
+    .progress-item.fading { opacity: 0; }
+    .progress-header-actions { display: flex; align-items: center; gap: 0.5rem; }
+    .progress-add-btn { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); background: none; border: 1px dashed var(--border); border-radius: 2px; padding: 0.1rem 0.4rem; cursor: pointer; transition: all 0.18s ease; }
+    .progress-add-btn:hover { border-color: var(--amber-dim); color: var(--amber); }
+    .subject-inline-form { display: flex; gap: 0.4rem; margin-bottom: 0.75rem; align-items: center; }
+    .subject-inline-form .note-input { flex: 1; padding: 0.3rem 0.5rem; font-size: 0.8rem; height: auto; }
+    .subject-inline-form .btn { padding: 0.3rem 0.65rem; font-size: 0.75rem; height: auto; }
+    .progress-insights { margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.22rem; }
 
     /* Timer */
     .timer-display { text-align: center; padding: 1.3rem 0; }
@@ -646,9 +668,9 @@
     .preview-panel { display: flex; flex-direction: column; height: calc(100vh - var(--topbar-h) - 60px); }
     .preview-header { display: flex; align-items: center; gap: 0.65rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--border); margin-bottom: 0.9rem; flex-shrink: 0; }
     .preview-filename { font-size: 0.78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-    .preview-content { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; }
-    .preview-content iframe { width: 100%; height: 100%; border: none; min-height: 400px; }
-    .preview-content img { max-width: 100%; object-fit: contain; }
+    .preview-content { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+    .preview-content iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+    .preview-content img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; margin: auto; }
 
     /* ============================================================
        VIDEO PANEL
@@ -731,6 +753,33 @@
       cursor: pointer;
     }
     .fc-list-item:last-child { border-bottom: none; }
+    .fc-list-item.selected { background: rgba(226, 168, 62, 0.05); }
+
+    .fc-select-toggle {
+      width: 22px;
+      height: 22px;
+      border: 1px solid var(--border);
+      background: var(--surface-raised);
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      line-height: 1;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+      margin-top: 0.1rem;
+    }
+    .fc-select-toggle:hover { border-color: var(--amber-dim); color: var(--amber); }
+    .fc-select-toggle.active {
+      border-color: var(--amber-dim);
+      color: var(--amber);
+      background: var(--amber-glow);
+    }
+
+    .fc-list-main {
+      flex: 1;
+      min-width: 0;
+    }
 
     .fc-list-front {
       flex: 1;
@@ -775,6 +824,21 @@
       margin-top: 0.1rem;
     }
 
+    .fc-selection-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin: -0.35rem 0 0.85rem;
+    }
+
+    .fc-selection-note {
+      font-family: var(--font-mono);
+      font-size: 0.56rem;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      margin: -0.15rem 0 0.9rem;
+    }
+
     .generate-btn {
       width: 100%;
       border: 1px dashed var(--amber-dim);
@@ -812,6 +876,11 @@
       box-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
       backdrop-filter: blur(20px);
       overflow: hidden;
+    }
+
+    .float-win.is-minimized {
+      height: auto !important;
+      min-height: 0 !important;
     }
 
     .float-win-header {
@@ -870,6 +939,14 @@
     }
 
     .float-win-body iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .float-win-body object {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -952,6 +1029,108 @@
       background: linear-gradient(135deg, transparent 52%, var(--amber-dim) 52%);
       opacity: 0.8;
     }
+
+    /* ============================================================
+       MINIMIZED ITEMS BAR
+    ============================================================ */
+    #minimized-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+      background: rgba(14, 14, 14, 0.97);
+      border-top: 1px solid var(--border);
+      z-index: 9998;
+      backdrop-filter: blur(12px);
+      display: none;
+    }
+    #minimized-bar.has-items { display: flex; }
+
+    .min-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      color: var(--amber);
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      letter-spacing: 0.06em;
+      padding: 0.18rem 0.5rem 0.18rem 0.6rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      max-width: 180px;
+      flex-shrink: 0;
+    }
+    .min-pill:hover { border-color: var(--amber-dim); background: var(--amber-glow); }
+
+    .min-pill-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .min-pill-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0 0.1rem;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: color 0.2s ease;
+    }
+    .min-pill-close:hover { color: var(--red); }
+
+    /* ============================================================
+       FLASHCARD FILE SELECTOR
+    ============================================================ */
+    .fc-file-select-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      margin-bottom: 0.65rem;
+    }
+    .fc-file-select-label {
+      font-family: var(--font-mono);
+      font-size: 0.56rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    #flashcard-file-select {
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      padding: 0.38rem 0.6rem;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.2s ease;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    #flashcard-file-select:focus { border-color: var(--amber-dim); }
+    #flashcard-file-select option { background: var(--surface); color: var(--text); }
+
+    .fc-generate-error {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: var(--red);
+      padding: 0.3rem 0;
+      margin-bottom: 0.4rem;
+      display: none;
+      line-height: 1.5;
+    }
+    .fc-generate-error.visible { display: block; }
 
     .modal-backdrop {
       position: fixed;
@@ -1179,9 +1358,18 @@
             <div class="card">
               <div class="card-header">
                 <span class="card-title">Study Progress</span>
-                <span class="card-badge">This week</span>
+                <div class="progress-header-actions">
+                  <button class="progress-add-btn" onclick="toggleSubjectForm()">+ Subject</button>
+                </div>
+              </div>
+              <div id="subject-form" style="display:none">
+                <div class="subject-inline-form">
+                  <input id="subject-input" class="note-input" placeholder="Subject name…" onkeydown="handleSubjectKey(event)">
+                  <button class="btn sm" onclick="submitSubject()">Add</button>
+                </div>
               </div>
               <div id="progress-list"></div>
+              <div id="progress-insights"></div>
             </div>
 
             <div class="card">
@@ -1257,13 +1445,17 @@
     </div><!-- /main-wrap -->
   </div><!-- /app-shell -->
 
+  <div id="minimized-bar"></div>
+
   <div class="modal-backdrop" id="settings-modal" onclick="handleModalBackdrop(event, 'settings-modal')">
     <div class="modal-panel">
       <div class="modal-title">Settings</div>
-      <div class="modal-sub">Store your Anthropic API key locally so flashcards can be generated from your notes and PDFs.</div>
-      <label class="modal-label" for="settings-api-key">Anthropic API Key</label>
+      <div class="modal-sub">API keys are saved in this browser only and never sent to our servers. Leave a field blank and save to remove it.</div>
+      <label class="modal-label" for="settings-api-key">Anthropic API Key <span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim);font-weight:300;">(paid)</span></label>
       <input class="note-input" id="settings-api-key" type="password" placeholder="sk-ant-api03-...">
-      <div class="modal-help">The key is saved in this browser only. Leave the field blank and save to remove it.</div>
+      <label class="modal-label" for="settings-gemini-key" style="margin-top:0.75rem;">Groq API Key <span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--green);font-weight:300;">free — console.groq.com</span></label>
+      <input class="note-input" id="settings-gemini-key" type="password" placeholder="gsk_...">
+      <div class="modal-help">If both keys are set, Anthropic is used. If Anthropic has no credits, Groq is used as fallback automatically.</div>
       <div class="modal-actions">
         <button class="btn sm" onclick="closeSettings()">Cancel</button>
         <button class="btn sm primary" onclick="saveApiKey()">Save</button>
@@ -1346,11 +1538,15 @@
     let widgetCards = [];
     let widgetCardIndex = 0;
     let cardsReviewed = 0;
+    let flashcardPanelCards = [];
+    let flashcardGeneratedPreview = [];
+    let flashcardGeneratedPreviewCourseId = null;
     let groupMembers = [];
     let editingFlashcardId = null;
     let sidebarCollapsed = false;
     let pendingJoinToken = null;
     let _floatZ = 1200;
+    const _floatStateMap = {}; // id → { left, top, width, height, minH, label }
 
     // ==================================================================
     //  HELPERS
@@ -1379,6 +1575,108 @@
       return Math.min(Math.max(val, min), max);
     }
 
+    function getFlashcardWidgetKey(courseId = activeCourseId) {
+      return courseId ? `warroom_fc_widget_${courseId}` : '';
+    }
+
+    function getFlashcardWidgetIds(courseId = activeCourseId) {
+      const key = getFlashcardWidgetKey(courseId);
+      if (!key) return [];
+      try {
+        const raw = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!Array.isArray(raw)) return [];
+        return [...new Set(raw.map(v => parseInt(v, 10)).filter(Number.isInteger))];
+      } catch(e) {
+        return [];
+      }
+    }
+
+    function setFlashcardWidgetIds(ids, courseId = activeCourseId) {
+      const key = getFlashcardWidgetKey(courseId);
+      if (!key) return;
+      const cleaned = [...new Set(ids.map(v => parseInt(v, 10)).filter(Number.isInteger))];
+      if (cleaned.length === 0) {
+        localStorage.removeItem(key);
+        return;
+      }
+      localStorage.setItem(key, JSON.stringify(cleaned));
+    }
+
+    function filterWidgetFlashcards(cards, courseId = activeCourseId) {
+      const widgetIds = getFlashcardWidgetIds(courseId);
+      if (widgetIds.length === 0) return [];
+      const byId = new Map(cards.map(card => [card.id, card]));
+      const filtered = widgetIds.map(id => byId.get(id)).filter(Boolean);
+      const filteredIds = filtered.map(card => card.id);
+      if (filteredIds.length !== widgetIds.length) setFlashcardWidgetIds(filteredIds, courseId);
+      return filtered;
+    }
+
+    function syncFlashcardWidgetState(cards) {
+      flashcardPanelCards = cards;
+      const validIds = new Set(cards.map(card => card.id));
+      const widgetIds = getFlashcardWidgetIds().filter(id => validIds.has(id));
+      setFlashcardWidgetIds(widgetIds);
+    }
+
+    function isFlashcardInWidget(cardId, courseId = activeCourseId) {
+      return getFlashcardWidgetIds(courseId).includes(cardId);
+    }
+
+    function updateFlashcardTimerUI() {
+      const note = document.getElementById('fc-selection-note');
+      if (!note) return;
+      const timerCount = getFlashcardWidgetIds().length;
+      if (flashcardPanelCards.length === 0 && flashcardGeneratedPreview.length === 0 && timerCount === 0) {
+        note.textContent = 'Generate or create flashcards, then use + to add them to the focus timer.';
+        return;
+      }
+      if (flashcardGeneratedPreview.length > 0) {
+        note.textContent = 'Use + to add a generated card to the focus timer. Use − to dismiss one you do not want.';
+        return;
+      }
+      if (timerCount === 0) {
+        note.textContent = 'Use + to add a card to the focus timer. × deletes a saved card completely.';
+        return;
+      }
+      note.textContent = `${timerCount} card${timerCount === 1 ? '' : 's'} in the focus timer. Use − to remove one. × deletes a saved card completely.`;
+    }
+
+    async function toggleFlashcardInWidget(cardId) {
+      if (!activeCourseId) return;
+      const widgetIds = getFlashcardWidgetIds();
+      if (widgetIds.includes(cardId)) setFlashcardWidgetIds(widgetIds.filter(id => id !== cardId));
+      else setFlashcardWidgetIds([...widgetIds, cardId]);
+      await loadFlashcardsWidget();
+      renderFlashcardList(flashcardPanelCards, flashcardGeneratedPreview);
+    }
+
+    function dismissGeneratedFlashcard(index) {
+      flashcardGeneratedPreview = flashcardGeneratedPreview.filter((_, i) => i !== index);
+      renderFlashcardList(flashcardPanelCards, flashcardGeneratedPreview);
+    }
+
+    async function addGeneratedFlashcard(index) {
+      if (!activeCourseId) return;
+      const generatedCard = flashcardGeneratedPreview[index];
+      if (!generatedCard) return;
+      try {
+        const created = await api('/flashcards', {
+          method: 'POST',
+          body: { front: generatedCard.front, back: generatedCard.back, course_id: activeCourseId }
+        });
+        setFlashcardWidgetIds([...getFlashcardWidgetIds(), created.id]);
+        flashcardGeneratedPreview = flashcardGeneratedPreview.filter((_, i) => i !== index);
+        const cards = await api(`/flashcards?course_id=${activeCourseId}`);
+        syncFlashcardWidgetState(cards);
+        renderFlashcardList(cards, flashcardGeneratedPreview);
+        await loadFlashcardsWidget();
+        await loadSidebarCounts();
+      } catch(e) {
+        console.error('addGeneratedFlashcard:', e);
+      }
+    }
+
     function applySidebarState(collapsed, persist = true) {
       sidebarCollapsed = collapsed;
       document.getElementById('app-shell').classList.toggle('sidebar-collapsed', collapsed);
@@ -1404,10 +1702,10 @@
 
     function openSettings() {
       const modal = document.getElementById('settings-modal');
-      const input = document.getElementById('settings-api-key');
-      input.value = localStorage.getItem('warroom_ai_key') || '';
+      document.getElementById('settings-api-key').value = localStorage.getItem('warroom_ai_key') || '';
+      document.getElementById('settings-gemini-key').value = localStorage.getItem('warroom_gemini_key') || '';
       modal.classList.add('visible');
-      requestAnimationFrame(() => input.focus());
+      requestAnimationFrame(() => document.getElementById('settings-api-key').focus());
     }
 
     function closeSettings() {
@@ -1415,10 +1713,12 @@
     }
 
     function saveApiKey() {
-      const input = document.getElementById('settings-api-key');
-      const value = input.value.trim();
-      if (value) localStorage.setItem('warroom_ai_key', value);
+      const anthropicVal = document.getElementById('settings-api-key').value.trim();
+      if (anthropicVal) localStorage.setItem('warroom_ai_key', anthropicVal);
       else localStorage.removeItem('warroom_ai_key');
+      const geminiVal = document.getElementById('settings-gemini-key').value.trim();
+      if (geminiVal) localStorage.setItem('warroom_gemini_key', geminiVal);
+      else localStorage.removeItem('warroom_gemini_key');
       closeSettings();
     }
 
@@ -1469,6 +1769,19 @@
     }
 
     const FloatWin = {
+      _syncMinButton(win) {
+        if (!win) return;
+        const btn = win.querySelector('.float-win-min-btn');
+        if (!btn) return;
+        if (win._minimized) {
+          btn.textContent = '□';
+          btn.title = 'Restore';
+        } else {
+          btn.textContent = '—';
+          btn.title = 'Minimize';
+        }
+      },
+
       bringToFront(win) {
         _floatZ += 1;
         win.style.zIndex = _floatZ;
@@ -1482,8 +1795,73 @@
         const win = document.getElementById(id);
         if (!win) return;
         const onClose = win._onClose;
+        this._removeMinPill(id);
+        delete _floatStateMap[id];
         win.remove();
         if (typeof onClose === 'function') onClose();
+      },
+
+      minimize(id) {
+        const win = document.getElementById(id);
+        if (!win || win._minimized) return;
+        _floatStateMap[id] = {
+          left: win.style.left, top: win.style.top,
+          width: win.style.width, height: win.style.height,
+          minH: win._minH
+        };
+        const body = win.querySelector('.float-win-body');
+        const resize = win.querySelector('.float-win-resize');
+        if (body) body.style.display = 'none';
+        if (resize) resize.style.display = 'none';
+        win.classList.add('is-minimized');
+        win.style.display = 'none';
+        win._minimized = true;
+        this._syncMinButton(win);
+        this._addMinPill(id, win._label || id);
+      },
+
+      restore(id) {
+        const state = _floatStateMap[id];
+        const win = document.getElementById(id);
+        if (!win) return;
+        const body = win.querySelector('.float-win-body');
+        const resize = win.querySelector('.float-win-resize');
+        if (body) body.style.display = '';
+        if (resize) resize.style.display = '';
+        win.style.display = 'flex';
+        if (state?.left) win.style.left = state.left;
+        if (state?.top) win.style.top = state.top;
+        if (state?.width) win.style.width = state.width;
+        if (state?.height) win.style.height = state.height;
+        win.style.minHeight = state?.minH ? `${state.minH}px` : (win._minH ? `${win._minH}px` : '');
+        win.classList.remove('is-minimized');
+        win._minimized = false;
+        this._syncMinButton(win);
+        this._removeMinPill(id);
+        this.bringToFront(win);
+      },
+
+      _addMinPill(id, label) {
+        const bar = document.getElementById('minimized-bar');
+        if (!bar) return;
+        this._removeMinPill(id);
+        const pill = document.createElement('div');
+        pill.className = 'min-pill';
+        pill.dataset.floatId = id;
+        pill.title = label;
+        pill.innerHTML = `<span class="min-pill-label">▪ ${escapeHtml(label)}</span><button class="min-pill-close" title="Close">×</button>`;
+        pill.querySelector('.min-pill-close').addEventListener('click', (e) => { e.stopPropagation(); this.close(id); });
+        pill.addEventListener('click', () => this.restore(id));
+        bar.appendChild(pill);
+        bar.classList.add('has-items');
+      },
+
+      _removeMinPill(id) {
+        const bar = document.getElementById('minimized-bar');
+        if (!bar) return;
+        const existing = bar.querySelector(`[data-float-id="${id}"]`);
+        if (existing) existing.remove();
+        if (!bar.children.length) bar.classList.remove('has-items');
       },
 
       create(id, label, bodyHtml, opts = {}) {
@@ -1506,10 +1884,14 @@
         win.style.minWidth = `${minW}px`;
         win.style.minHeight = `${minH}px`;
         win._onClose = typeof opts.onClose === 'function' ? opts.onClose : null;
+        win._label = label;
+        win._minH = minH;
+        win._minimized = false;
         win.innerHTML = `
           <div class="float-win-header">
             <div class="float-win-actions">${opts.extraTitleHtml || ''}</div>
             <div class="float-win-title" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+            <button class="title-icon-btn float-win-min-btn" title="Minimize" style="font-size:1rem;padding-bottom:0.1rem;">—</button>
             <button class="float-win-close" title="Close">×</button>
           </div>
           <div class="float-win-body">${bodyHtml}</div>
@@ -1517,54 +1899,77 @@
         `;
         document.body.appendChild(win);
         this.bringToFront(win);
+        this._syncMinButton(win);
         win.addEventListener('pointerdown', () => this.bringToFront(win));
 
-        const closeBtn = win.querySelector('.float-win-close');
-        closeBtn.addEventListener('click', () => this.close(id));
+        win.querySelector('.float-win-close').addEventListener('click', () => this.close(id));
+        win.querySelector('.float-win-min-btn').addEventListener('click', () => {
+          if (win._minimized) {
+            this.restore(id);
+          } else {
+            this.minimize(id);
+          }
+        });
 
+        // DRAG — only fires after genuine pointerdown; setPointerCapture prevents ghost-drag on pointercancel
         const header = win.querySelector('.float-win-header');
         header.addEventListener('pointerdown', (e) => {
           if (e.target.closest('button, a, input, textarea, select, label')) return;
-          const startX = e.clientX;
-          const startY = e.clientY;
+          if (win._minimized) {
+            e.preventDefault();
+            this.restore(id);
+            return;
+          }
+          if (e.buttons !== 1) return;
+          e.preventDefault();
+          header.setPointerCapture(e.pointerId);
+          const startX = e.clientX, startY = e.clientY;
           const rect = win.getBoundingClientRect();
-          const move = (evt) => {
-            const nextLeft = clamp(rect.left + evt.clientX - startX, 0, Math.max(0, window.innerWidth - win.offsetWidth));
-            const nextTop = clamp(rect.top + evt.clientY - startY, 0, Math.max(0, window.innerHeight - win.offsetHeight));
-            win.style.left = `${nextLeft}px`;
-            win.style.top = `${nextTop}px`;
-          };
-          const up = () => {
-            document.removeEventListener('pointermove', move);
-            document.removeEventListener('pointerup', up);
-            document.body.style.userSelect = '';
-          };
+          let active = true;
           document.body.style.userSelect = 'none';
-          document.addEventListener('pointermove', move);
-          document.addEventListener('pointerup', up);
+          const onMove = (ev) => {
+            if (!active) return;
+            win.style.left = `${clamp(rect.left + ev.clientX - startX, 0, Math.max(0, window.innerWidth  - win.offsetWidth))}px`;
+            win.style.top  = `${clamp(rect.top  + ev.clientY - startY, 0, Math.max(0, window.innerHeight - win.offsetHeight))}px`;
+          };
+          const onEnd = () => {
+            active = false;
+            document.body.style.userSelect = '';
+            header.removeEventListener('pointermove',   onMove);
+            header.removeEventListener('pointerup',     onEnd);
+            header.removeEventListener('pointercancel', onEnd);
+          };
+          header.addEventListener('pointermove',   onMove);
+          header.addEventListener('pointerup',     onEnd);
+          header.addEventListener('pointercancel', onEnd);
         });
 
+        // RESIZE — same pattern
         const resizeHandle = win.querySelector('.float-win-resize');
         resizeHandle.addEventListener('pointerdown', (e) => {
+          if (e.buttons !== 1) return;
           e.preventDefault();
           e.stopPropagation();
-          const startX = e.clientX;
-          const startY = e.clientY;
+          resizeHandle.setPointerCapture(e.pointerId);
+          const startX = e.clientX, startY = e.clientY;
           const rect = win.getBoundingClientRect();
-          const move = (evt) => {
-            const nextWidth = clamp(rect.width + evt.clientX - startX, minW, Math.max(minW, window.innerWidth - rect.left));
-            const nextHeight = clamp(rect.height + evt.clientY - startY, minH, Math.max(minH, window.innerHeight - rect.top));
-            win.style.width = `${nextWidth}px`;
-            win.style.height = `${nextHeight}px`;
-          };
-          const up = () => {
-            document.removeEventListener('pointermove', move);
-            document.removeEventListener('pointerup', up);
-            document.body.style.userSelect = '';
-          };
+          let active = true;
           document.body.style.userSelect = 'none';
-          document.addEventListener('pointermove', move);
-          document.addEventListener('pointerup', up);
+          const onMove = (ev) => {
+            if (!active) return;
+            win.style.width  = `${clamp(rect.width  + ev.clientX - startX, minW, Math.max(minW, window.innerWidth  - rect.left))}px`;
+            win.style.height = `${clamp(rect.height + ev.clientY - startY, minH, Math.max(minH, window.innerHeight - rect.top))}px`;
+          };
+          const onEnd = () => {
+            active = false;
+            document.body.style.userSelect = '';
+            resizeHandle.removeEventListener('pointermove',   onMove);
+            resizeHandle.removeEventListener('pointerup',     onEnd);
+            resizeHandle.removeEventListener('pointercancel', onEnd);
+          };
+          resizeHandle.addEventListener('pointermove',   onMove);
+          resizeHandle.addEventListener('pointerup',     onEnd);
+          resizeHandle.addEventListener('pointercancel', onEnd);
         });
 
         return win;
@@ -1666,6 +2071,10 @@
       if (e.key === 'Enter') saveApiKey();
       if (e.key === 'Escape') closeSettings();
     });
+    document.getElementById('settings-gemini-key').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') saveApiKey();
+      if (e.key === 'Escape') closeSettings();
+    });
 
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
@@ -1749,6 +2158,8 @@
         loadSidebarCounts(), loadFlashcardsWidget()
       ]);
       if (currentPanel) renderPanel(currentPanel);
+      // Refresh file selector if flashcards panel was re-rendered
+      if (currentPanel === 'flashcards-panel') loadFlashcardFileOptions();
     }
 
     function toggleAddCourseForm() {
@@ -2118,19 +2529,32 @@
     // ==================================================================
     //  STUDY PROGRESS
     // ==================================================================
+    const CONFIDENCE_LABELS = ['🔴 Struggling', '🟡 Getting There', '🟢 Confident'];
+
     function renderProgress(items) {
       const container = document.getElementById('progress-list');
       container.innerHTML = '';
       items.forEach(item => {
+        const c = item.confidence ?? 0;
+        const pct = item.progress_pct ?? 10;
         const div = document.createElement('div');
         div.className = 'progress-item';
+        div.dataset.subject = item.subject;
         div.innerHTML = `
           <div class="progress-label">
-            <span>${escapeHtml(item.subject)}</span>
-            <span><input type="number" class="progress-pct-input" value="${item.progress_pct}" min="0" max="100" data-subject="${escapeHtml(item.subject)}" onchange="updateProgress(this)" onfocus="this.select()">%</span>
+            <div class="progress-label-left">
+              <span title="${escapeHtml(item.subject)}">${escapeHtml(item.subject)}</span>
+            </div>
+            <button class="confidence-tag c${c}"
+              data-subject="${escapeHtml(item.subject)}"
+              data-confidence="${c}"
+              onclick="cycleConfidence(this)">${CONFIDENCE_LABELS[c]}</button>
+            <button class="progress-delete-btn"
+              data-subject="${escapeHtml(item.subject)}"
+              onclick="deleteProgress(this)" title="Remove subject">×</button>
           </div>
           <div class="progress-track">
-            <div class="progress-fill" style="width:0%" data-width="${item.progress_pct}%"></div>
+            <div class="progress-fill c${c}" style="width:0%" data-width="${pct}%"></div>
           </div>
         `;
         container.appendChild(div);
@@ -2138,6 +2562,20 @@
       requestAnimationFrame(() => setTimeout(() => {
         container.querySelectorAll('.progress-fill').forEach(b => b.style.width = b.dataset.width);
       }, 50));
+      renderProgressInsights(items);
+    }
+
+    function renderProgressInsights(items) {
+      const el = document.getElementById('progress-insights');
+      if (!el) return;
+      if (!items || items.length < 2) { el.innerHTML = ''; return; }
+      const sorted = [...items].sort((a, b) => (a.progress_pct ?? 0) - (b.progress_pct ?? 0));
+      const lowest = sorted[0];
+      const highest = sorted[sorted.length - 1];
+      el.innerHTML = `
+        <span>💪 Focus area: <strong>${escapeHtml(lowest.subject)}</strong> (${lowest.progress_pct ?? 0}%)</span>
+        <span>⭐ Strength: <strong>${escapeHtml(highest.subject)}</strong> (${highest.progress_pct ?? 0}%)</span>
+      `;
     }
 
     async function loadProgress() {
@@ -2146,18 +2584,94 @@
       catch(e) { console.error('loadProgress:', e); }
     }
 
-    async function updateProgress(input) {
+    async function cycleConfidence(btn) {
       if (!activeCourseId) return;
-      let pct = parseInt(input.value, 10);
-      if (isNaN(pct)) pct = 0;
-      pct = Math.max(0, Math.min(100, pct));
-      input.value = pct;
+      const subject = btn.dataset.subject;
+      const current = parseInt(btn.dataset.confidence, 10);
+      const next = (current + 1) % 3;
+      const item = btn.closest('.progress-item');
+      const fill = item.querySelector('.progress-fill');
+
+      // Optimistic update
+      btn.dataset.confidence = next;
+      btn.className = `confidence-tag c${next}`;
+      btn.textContent = CONFIDENCE_LABELS[next];
+      fill.className = `progress-fill c${next}`;
+
       try {
-        await api(`/progress/${encodeURIComponent(input.dataset.subject)}`, {
-          method: 'PUT', body: { progress_pct: pct, course_id: activeCourseId }
+        const result = await api(`/progress/${encodeURIComponent(subject)}`, {
+          method: 'PUT', body: { confidence: next, course_id: activeCourseId }
         });
-        input.closest('.progress-item').querySelector('.progress-fill').style.width = `${pct}%`;
-      } catch(e) { console.error('updateProgress:', e); }
+        fill.style.width = `${result.progress_pct}%`;
+        fill.dataset.width = `${result.progress_pct}%`;
+        // Refresh insights from DOM
+        const container = document.getElementById('progress-list');
+        const domItems = [...container.querySelectorAll('.progress-item')].map(row => ({
+          subject: row.dataset.subject,
+          progress_pct: parseInt(row.querySelector('.progress-fill').dataset.width, 10) || 0
+        }));
+        renderProgressInsights(domItems);
+      } catch(e) {
+        console.error('cycleConfidence:', e);
+        // Roll back
+        btn.dataset.confidence = current;
+        btn.className = `confidence-tag c${current}`;
+        btn.textContent = CONFIDENCE_LABELS[current];
+        fill.className = `progress-fill c${current}`;
+      }
+    }
+
+    async function deleteProgress(btn) {
+      if (!activeCourseId) return;
+      const subject = btn.dataset.subject;
+      const item = btn.closest('.progress-item');
+      item.classList.add('fading');
+      try {
+        await api(`/progress/${encodeURIComponent(subject)}?course_id=${activeCourseId}`, { method: 'DELETE' });
+        setTimeout(() => {
+          item.remove();
+          // Rebuild insights from remaining rows
+          const container = document.getElementById('progress-list');
+          const remaining = [...container.querySelectorAll('.progress-item')].map(row => ({
+            subject: row.dataset.subject,
+            progress_pct: parseInt(row.querySelector('.progress-fill').dataset.width, 10) || 0
+          }));
+          renderProgressInsights(remaining);
+        }, 300);
+      } catch(e) {
+        console.error('deleteProgress:', e);
+        item.classList.remove('fading');
+      }
+    }
+
+    function toggleSubjectForm() {
+      const form = document.getElementById('subject-form');
+      const input = document.getElementById('subject-input');
+      const visible = form.style.display !== 'none';
+      form.style.display = visible ? 'none' : 'block';
+      if (!visible) requestAnimationFrame(() => input.focus());
+      else input.value = '';
+    }
+
+    function handleSubjectKey(e) {
+      if (e.key === 'Enter') submitSubject();
+      if (e.key === 'Escape') toggleSubjectForm();
+    }
+
+    async function submitSubject() {
+      if (!activeCourseId) return;
+      const input = document.getElementById('subject-input');
+      const subject = input.value.trim();
+      if (!subject) return;
+      try {
+        await api('/progress', { method: 'POST', body: { subject, course_id: activeCourseId } });
+        input.value = '';
+        document.getElementById('subject-form').style.display = 'none';
+        await loadProgress();
+      } catch(e) {
+        if (e.status === 409) alert('That subject already exists for this course.');
+        else console.error('submitSubject:', e);
+      }
     }
 
     // ==================================================================
@@ -2166,7 +2680,7 @@
     async function loadFlashcardsWidget() {
       if (!activeCourseId) { widgetCards = []; renderCardWidget(); return; }
       try {
-        widgetCards = await api(`/flashcards?course_id=${activeCourseId}`);
+        widgetCards = filterWidgetFlashcards(await api(`/flashcards?course_id=${activeCourseId}`));
       } catch(e) {
         widgetCards = [];
       }
@@ -2511,18 +3025,21 @@
     function showFilePreview(file, section) {
       const url = `/api/files/${file.id}/content?section=${section}`;
       const type = (file.file_type || '').toUpperCase();
-      let bodyHtml = '';
-      if (type === 'PDF') {
-        bodyHtml = `<iframe src="${escapeHtml(url)}" title="${escapeHtml(file.filename)}"></iframe>`;
-      } else if (['PNG','JPG','JPEG','WEBP'].includes(type)) {
-        bodyHtml = `<div class="float-preview-wrap"><img src="${escapeHtml(url)}" alt="${escapeHtml(file.filename)}"></div>`;
-      } else {
-        bodyHtml = `<div class="float-empty-state">${escapeHtml(type)} cannot be previewed.<br><a href="${escapeHtml(url)}" download="${escapeHtml(file.filename)}">Download</a></div>`;
-      }
-      FloatWin.create(
+      const isPdf = type === 'PDF';
+      const isImage = ['PNG','JPG','JPEG','WEBP'].includes(type);
+      const isPreviewable = isPdf || isImage;
+      const downloadHref = escapeHtml(url);
+      const fallbackHtml = `<div class="float-empty-state">Preview unavailable.<br><a href="${downloadHref}" target="_blank" rel="noopener">Open file</a></div>`;
+      const win = FloatWin.create(
         'float-file',
         file.filename,
-        bodyHtml,
+        isPreviewable
+          ? (
+              isPdf
+                ? `<object data="${downloadHref}#view=FitH" type="application/pdf" aria-label="${escapeHtml(file.filename)}">${fallbackHtml}</object>`
+                : `<div class="float-preview-wrap"><img src="${downloadHref}" alt="${escapeHtml(file.filename)}"></div>`
+            )
+          : `<div class="float-empty-state">${escapeHtml(type)} cannot be previewed.<br><a href="${downloadHref}" download="${escapeHtml(file.filename)}">Download</a></div>`,
         {
           x: 280,
           y: 110,
@@ -2533,6 +3050,15 @@
           extraTitleHtml: `<a class="title-icon-btn" href="${escapeHtml(url)}" download="${escapeHtml(file.filename)}" title="Download">↓</a>`
         }
       );
+      if (!isPreviewable) return;
+
+      if (isImage) {
+        const body = win.querySelector('.float-win-body');
+        const image = body.querySelector('img');
+        image?.addEventListener('error', () => {
+          body.innerHTML = fallbackHtml;
+        }, { once: true });
+      }
     }
 
     // ==================================================================
@@ -3045,7 +3571,15 @@
           </div>
 
           <div class="tab-content active" id="fc-tab-browse">
-            <button class="generate-btn" id="generate-btn" onclick="generateFromNotes()">⚡ Generate from Notes</button>
+            <div class="fc-file-select-row">
+              <span class="fc-file-select-label">Generate from</span>
+              <select id="flashcard-file-select">
+                <option value="">All notes &amp; uploaded files</option>
+              </select>
+            </div>
+            <div class="fc-generate-error" id="fc-generate-error"></div>
+            <button class="generate-btn" id="generate-btn" onclick="generateFromNotes()">⚡ Generate Flashcards</button>
+            <div class="fc-selection-note" id="fc-selection-note">Use + to add cards to the focus timer.</div>
             <div id="fc-panel-list"></div>
           </div>
 
@@ -3066,6 +3600,24 @@
       `;
       document.getElementById('submit-fc-btn').addEventListener('click', submitFlashcard);
       loadFlashcardsPanel();
+      loadFlashcardFileOptions();
+    }
+
+    async function loadFlashcardFileOptions() {
+      const sel = document.getElementById('flashcard-file-select');
+      if (!sel || !activeCourseId) return;
+      try {
+        const files = await api(`/files?course_id=${activeCourseId}`);
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">All notes &amp; uploaded files</option>';
+        files.forEach(f => {
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = `${f.file_type} — ${f.filename}`;
+          sel.appendChild(opt);
+        });
+        if (cur && files.find(f => String(f.id) === cur)) sel.value = cur;
+      } catch(e) { /* silently ignore */ }
     }
 
     function switchFcTab(tab) {
@@ -3078,11 +3630,20 @@
     async function loadFlashcardsPanel() {
       if (!activeCourseId) return;
       try {
+        if (flashcardGeneratedPreviewCourseId !== activeCourseId) {
+          flashcardGeneratedPreview = [];
+          flashcardGeneratedPreviewCourseId = activeCourseId;
+        }
         const cards = await api(`/flashcards?course_id=${activeCourseId}`);
-        renderFlashcardList(cards);
+        syncFlashcardWidgetState(cards);
+        renderFlashcardList(cards, flashcardGeneratedPreview);
       } catch(e) {
+        flashcardPanelCards = [];
         const el = document.getElementById('fc-panel-list');
-        if (el) el.innerHTML = '<div class="empty-state">No cards yet</div>';
+        if (el) {
+          el.innerHTML = '<div class="empty-state">No cards yet</div>';
+          updateFlashcardTimerUI();
+        }
       }
     }
 
@@ -3090,35 +3651,52 @@
       const container = document.getElementById('fc-panel-list');
       const badge     = document.getElementById('fc-panel-badge');
       if (!container) return;
+      flashcardPanelCards = cards;
+      flashcardGeneratedPreview = appendGeneratedAtTop;
       if (badge) badge.textContent = `${cards.length + appendGeneratedAtTop.length} card${(cards.length + appendGeneratedAtTop.length) !== 1 ? 's' : ''}`;
 
       container.innerHTML = '';
 
-      // Generated mock cards first (with badge)
-      appendGeneratedAtTop.forEach(mc => {
+      // Generated mock cards first (with add / dismiss actions)
+      appendGeneratedAtTop.forEach((mc, index) => {
         const div = document.createElement('div');
         div.className = 'fc-list-item';
         div.innerHTML = `
-          <div style="flex:1;">
+          <button class="fc-select-toggle" title="Add to focus timer">+</button>
+          <div class="fc-list-main">
             <div class="fc-list-front">${escapeHtml(mc.front)}</div>
             <div class="fc-list-back">${escapeHtml(mc.back)}</div>
           </div>
-          <span class="fc-generated-badge">Generated</span>
+          <div class="fc-item-actions">
+            <span class="fc-generated-badge">Generated</span>
+            <button class="fc-edit-btn" title="Discard generated card">−</button>
+          </div>
         `;
+        div.querySelector('.fc-select-toggle').addEventListener('click', (e) => {
+          e.stopPropagation();
+          addGeneratedFlashcard(index);
+        });
+        div.querySelector('.fc-edit-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          dismissGeneratedFlashcard(index);
+        });
         div.addEventListener('click', () => div.classList.toggle('flipped'));
         container.appendChild(div);
       });
 
       if (cards.length === 0 && appendGeneratedAtTop.length === 0) {
         container.innerHTML = '<div class="empty-state">No cards yet. Create one or generate from notes!</div>';
+        updateFlashcardTimerUI();
         return;
       }
 
       cards.forEach(card => {
         const div = document.createElement('div');
-        div.className = 'fc-list-item';
+        const isInWidget = isFlashcardInWidget(card.id);
+        div.className = `fc-list-item${isInWidget ? ' selected' : ''}`;
         div.innerHTML = `
-          <div style="flex:1;">
+          <button class="fc-select-toggle${isInWidget ? ' active' : ''}" title="${isInWidget ? 'Remove from focus timer' : 'Add to focus timer'}">${isInWidget ? '−' : '+'}</button>
+          <div class="fc-list-main">
             <div class="fc-list-front">${escapeHtml(card.front)}</div>
             <div class="fc-list-back">${escapeHtml(card.back)}</div>
           </div>
@@ -3127,11 +3705,17 @@
             <button class="del-btn" title="Delete">×</button>
           </div>
         `;
+        div.querySelector('.fc-select-toggle').addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleFlashcardInWidget(card.id);
+        });
         div.querySelector('.fc-edit-btn').addEventListener('click', (e) => { e.stopPropagation(); editFlashcard(card); });
         div.querySelector('.del-btn').addEventListener('click',      (e) => { e.stopPropagation(); deleteFlashcard(card.id); });
         div.addEventListener('click', () => div.classList.toggle('flipped'));
         container.appendChild(div);
       });
+
+      updateFlashcardTimerUI();
     }
 
     async function submitFlashcard() {
@@ -3152,7 +3736,9 @@
         const notice = document.getElementById('fc-edit-notice');
         if (notice) notice.style.display = 'none';
         switchFcTab('browse');
-        await loadFlashcardsPanel();
+        const cards = await api(`/flashcards?course_id=${activeCourseId}`);
+        syncFlashcardWidgetState(cards);
+        renderFlashcardList(cards, flashcardGeneratedPreview);
         await loadFlashcardsWidget();
         await loadSidebarCounts();
       } catch(e) { console.error('submitFlashcard:', e); }
@@ -3179,7 +3765,10 @@
     async function deleteFlashcard(id) {
       try {
         await api(`/flashcards/${id}`, { method: 'DELETE' });
-        await loadFlashcardsPanel();
+        setFlashcardWidgetIds(getFlashcardWidgetIds().filter(widgetId => widgetId !== id));
+        const cards = await api(`/flashcards?course_id=${activeCourseId}`);
+        syncFlashcardWidgetState(cards);
+        renderFlashcardList(cards, flashcardGeneratedPreview);
         await loadFlashcardsWidget();
         await loadSidebarCounts();
       } catch(e) { console.error('deleteFlashcard:', e); }
@@ -3187,36 +3776,90 @@
 
     async function generateFromNotes() {
       if (!activeCourseId) return;
-      const apiKey = (localStorage.getItem('warroom_ai_key') || '').trim();
-      if (!apiKey) {
-        openSettings();
-        return;
-      }
+      const anthropicKey = (localStorage.getItem('warroom_ai_key') || '').trim();
+      const groqKey = (localStorage.getItem('warroom_gemini_key') || '').trim();
+      if (!anthropicKey && !groqKey) { openSettings(); return; }
+
+      const provider = anthropicKey ? 'anthropic' : 'gemini';
       const btn = document.getElementById('generate-btn');
+      const errEl = document.getElementById('fc-generate-error');
       if (!btn) return;
+
+      const showErr = (msg) => {
+        if (errEl) { errEl.textContent = msg; errEl.classList.add('visible'); }
+        else alert(msg);
+      };
+      if (errEl) errEl.classList.remove('visible');
+
+      const selEl = document.getElementById('flashcard-file-select');
+      const fileId = selEl ? selEl.value : '';
+
+      function buildBody(prov) {
+        const base = fileId
+          ? { course_id: activeCourseId, file_id: parseInt(fileId) }
+          : { course_id: activeCourseId, source: 'both' };
+        base.provider = prov;
+        if (prov === 'anthropic') base.api_key = anthropicKey;
+        else base.gemini_api_key = groqKey;
+        return base;
+      }
+
+      async function _retryWithGroq() {
+        if (!groqKey) {
+          showErr('Anthropic account has no credits. Add a free Groq key in ⚙ Settings.');
+          return null;
+        }
+        showErr('');
+        if (errEl) errEl.classList.remove('visible');
+        btn.textContent = '⟳ Generating (Groq)…';
+        try {
+          return await api('/ai/generate-flashcards', { method: 'POST', body: buildBody('gemini') });
+        } catch(e2) {
+          if (e2.status === 429) showErr(e2.detail || 'Groq rate limit exceeded — wait a moment and try again.');
+          else if (e2.status === 401) { showErr('Invalid Groq API key — update in ⚙ Settings.'); openSettings(); }
+          else showErr(e2.detail || 'Groq generation failed — try again.');
+          return null;
+        }
+      }
+
       btn.disabled = true;
-      btn.textContent = '⟳ Generating…';
+      btn.textContent = provider === 'anthropic' ? '⟳ Generating (Anthropic)…' : '⟳ Generating (Groq)…';
+
       try {
-        const [generated, existing] = await Promise.all([
-          api('/ai/generate-flashcards', {
-            method: 'POST',
-            body: { course_id: activeCourseId, api_key: apiKey, source: 'both' }
-          }),
-          api(`/flashcards?course_id=${activeCourseId}`)
-        ]);
+        let generated;
+        try {
+          generated = await api('/ai/generate-flashcards', { method: 'POST', body: buildBody(provider) });
+        } catch(e) {
+          if (e.status === 402 && provider === 'anthropic') {
+            generated = await _retryWithGroq();
+            if (!generated) return;
+          } else {
+            throw e;
+          }
+        }
+
+        const existing = await api(`/flashcards?course_id=${activeCourseId}`);
+        if (errEl) errEl.classList.remove('visible');
+        flashcardGeneratedPreviewCourseId = activeCourseId;
         renderFlashcardList(existing, generated);
       } catch(e) {
         if (e.status === 401) {
-          alert('The Anthropic API key was rejected. Update it in Settings.');
+          showErr('Invalid API key — update it in ⚙ Settings.');
           openSettings();
         } else if (e.status === 422) {
-          alert('No notes or PDF content were found for this course yet.');
+          showErr('No content found for this selection. Upload a file or add notes first.');
+        } else if (e.status === 429) {
+          showErr(e.detail || 'Groq rate limit exceeded — wait a moment and try again.');
+        } else if (e.status === 503) {
+          showErr(e.detail || 'SDK not installed on server. Run: pip install anthropic');
+        } else if (e.status === 404) {
+          showErr('Selected file not found. Try refreshing the file list.');
         } else {
-          alert(e.detail || 'Failed to generate flashcards.');
+          showErr(e.detail || 'Generation failed — try again.');
         }
       } finally {
         btn.disabled = false;
-        btn.textContent = '⚡ Generate from Notes';
+        btn.textContent = '⚡ Generate Flashcards';
       }
     }
 

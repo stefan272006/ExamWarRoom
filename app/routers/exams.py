@@ -24,6 +24,7 @@ def _ensure_progress_subject(db: Session, course_id: int, subject: str) -> None:
                 course_id=course_id,
                 subject=subject,
                 progress_pct=0,
+                confidence=0,
                 updated_at=timestamp_now(),
             )
         )

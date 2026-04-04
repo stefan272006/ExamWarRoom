@@ -36,6 +36,7 @@ def _rebuild_study_progress_table(connection) -> None:
                 course_id INTEGER,
                 subject VARCHAR NOT NULL,
                 progress_pct INTEGER NOT NULL DEFAULT 0,
+                confidence INTEGER NOT NULL DEFAULT 0,
                 updated_at VARCHAR NOT NULL
             )
             """
@@ -44,8 +45,8 @@ def _rebuild_study_progress_table(connection) -> None:
     connection.execute(
         text(
             """
-            INSERT INTO study_progress (id, user_id, subject, progress_pct, updated_at)
-            SELECT id, user_id, subject, progress_pct, updated_at
+            INSERT INTO study_progress (id, user_id, subject, progress_pct, confidence, updated_at)
+            SELECT id, user_id, subject, progress_pct, 0, updated_at
             FROM study_progress_legacy
             """
         )
@@ -100,6 +101,9 @@ def migrate_sqlite_schema(bind=engine) -> None:
         for table_name in ("exams", "focus_sessions", "uploaded_files", "questions"):
             if table_name in table_names:
                 _add_column_if_missing(connection, table_name, "course_id INTEGER")
+
+        if "study_progress" in table_names:
+            _add_column_if_missing(connection, "study_progress", "confidence INTEGER DEFAULT 0")
 
         connection.execute(
             text(

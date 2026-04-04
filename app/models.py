@@ -53,6 +53,7 @@ class StudyProgress(Base):
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
     subject = Column(String, nullable=False)
     progress_pct = Column(Integer, nullable=False, default=0)
+    confidence = Column(Integer, nullable=False, default=0)
     updated_at = Column(String, nullable=False)
 
 

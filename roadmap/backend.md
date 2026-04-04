@@ -73,10 +73,13 @@ MATH 1090
 | user_id | INTEGER | default 1 |
 | course_id | INTEGER | FK → courses.id, not null |
 | subject | TEXT | not null |
-| progress_pct | INTEGER | 0-100 |
+| progress_pct | INTEGER | legacy column, always written as 0; actual pct computed at read time |
+| confidence | INTEGER | 0=Struggling, 1=Getting There, 2=Confident; default 0 |
 | updated_at | TEXT | auto-set |
 
 Unique constraint: `(user_id, course_id, subject)`.
+
+**Migration:** `confidence` column added via `_add_column_if_missing` in `database.py` at startup — safe to run on existing databases. Existing rows get `confidence=0` (Struggling) as default.
 
 ---
 
@@ -229,8 +232,23 @@ Stats logic (all filtered by `course_id`):
 ### Study Progress
 | Method | Path | Query / Body | Response |
 |--------|------|------|----------|
-| GET | /api/progress | `?course_id=` | Progress[] |
-| PUT | /api/progress/{subject} | `{progress_pct, course_id}` | Progress (upsert) |
+| GET | /api/progress | `?course_id=` | Progress[] (with computed `progress_pct`) |
+| POST | /api/progress | `{subject, course_id}` | Progress (201) — manual subject creation |
+| PUT | /api/progress/{subject} | `{confidence, course_id}` | Progress (upsert) |
+| DELETE | /api/progress/{subject} | `?course_id=` | 204 |
+
+**`progress_pct` is computed at read time** — never stored. Formula:
+- `confidence=0` (Struggling): base = 10
+- `confidence=1` (Getting There): base = 45
+- `confidence=2` (Confident): base = 80
+- `activity_bonus` = `min(20, floor(hours_for_subject * 4))` — hours pulled from `focus_sessions` for matching `(course_id, subject)`
+- `progress_pct` = `min(100, base + activity_bonus)`
+
+GET endpoint runs a single grouped query (`GROUP BY subject`) on `focus_sessions` to get all hours at once, then builds each response dict via `_build_out()`.
+
+POST returns 409 if subject already exists for the course. Creates row with `confidence=0`.
+
+DELETE returns 404 if `(course_id, subject)` not found.
 
 ---
 
@@ -314,22 +332,48 @@ Validation: if `mcq`, options must be 2–4 strings; `correct_index` must be val
 ### AI Flashcard Generation *(new — Phase 3)*
 | Method | Path | Body | Response |
 |--------|------|------|----------|
-| POST | /api/ai/generate-flashcards | `{course_id, api_key, source}` | `[{front, back}]` (200) |
+| POST | /api/ai/generate-flashcards | `{course_id, provider, api_key?, gemini_api_key?, file_id?, source?}` | `[{front, back}]` (200) |
 
 **Body fields:**
-- `course_id`: integer — which course to pull PDFs from
-- `api_key`: string — user's Anthropic API key (never stored server-side)
-- `source`: `"notes"` \| `"uploaded_files"` \| `"both"` (default `"both"`)
+- `course_id`: integer — which course to pull content from
+- `provider`: `"anthropic"` \| `"gemini"` (default `"anthropic"`) — which LLM to use
+- `api_key`: string (optional) — Anthropic API key; required when `provider="anthropic"`
+- `gemini_api_key`: string (optional) — Google Gemini API key; required when `provider="gemini"` (free tier available at aistudio.google.com)
+- `file_id`: integer (optional) — if provided, extract text from this specific `UploadedFile` only (ignores `source`)
+- `source`: `"notes"` \| `"uploaded_files"` \| `"both"` (default `"both"`) — used only when `file_id` is absent
 
 **Logic:**
-- If `source` includes `"notes"`: fetch all `Note` rows for `user_id=1`; join as text
-- If `source` includes `"uploaded_files"`: find PDF `UploadedFile` rows for the course (cap at 3); extract text from first 5 pages via PyMuPDF (`fitz`); cap each file at 3000 chars
+**Content collection** (shared for both providers):
+- If `file_id` is provided: look up that exact `UploadedFile` row (404 if not found or wrong course); extract text from it (PDF → PyMuPDF, max 5 pages × 3000 chars; `.txt`/`.docx` → read raw text, cap at 6000 chars); skip `source` logic entirely
+- Else if `source` includes `"notes"`: fetch all `Note` rows for `user_id=1`; join as text
+- Else if `source` includes `"uploaded_files"`: find PDF `UploadedFile` rows for the course (cap at 3 files); extract text from first 5 pages via PyMuPDF (`fitz`); cap each file at 3000 chars
 - Combine content (max 6000 chars total sent to LLM)
-- Call `anthropic.Anthropic(api_key=...).messages.create(model="claude-haiku-4-5-20251001", ...)` with a prompt requesting exactly 5 flashcards as a JSON array `[{front, back}]`
-- Parse JSON array from response; return filtered list of non-empty cards
-- **Errors**: 400 if no api_key; 401 if Anthropic `AuthenticationError`; 422 if no content found; 502 for other LLM failures
+- 422 if combined content is empty
 
-**Key decision**: API key passed per-request and never persisted server-side — user stores it in localStorage client-side.
+**Anthropic path** (`provider="anthropic"`):
+- SDK import guard: import `anthropic` with try/except; return 503 if not installed
+- 400 if `api_key` missing; 401 if `AuthenticationError`; 402 if `BadRequestError` with credit/billing message
+- Call `anthropic.Anthropic(api_key=api_key).messages.create(model="claude-haiku-4-5-20251001", max_tokens=1024, ...)`
+
+**Gemini path** (`provider="gemini"`):
+- SDK import guard: import `google.generativeai as genai` with try/except; return 503 if not installed
+- 400 if `gemini_api_key` missing
+- Call `genai.configure(api_key=gemini_api_key)` then `genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)`
+- Error handling by inspecting `type(exc).__name__`: `PermissionDenied` → 401; `ResourceExhausted` → 429; other → 502
+
+**Shared prompt**: "Generate exactly 10 study flashcards from the provided material. Return raw JSON only as an array of objects with keys front and back. Do not wrap the JSON in markdown fences."
+
+**Errors (all providers)**:
+- 400 — key missing
+- 401 — invalid key
+- 402 — Anthropic no credits (Anthropic only)
+- 404 — `file_id` not found for course
+- 422 — no content found
+- 429 — Gemini quota exceeded (Gemini only)
+- 502 — other LLM failure
+- 503 — SDK not installed
+
+**Key decision**: API keys passed per-request, never stored server-side. Both `anthropic` and `google-generativeai` packages listed in `requirements.txt`. Gemini Flash is free-tier accessible with no billing required.
 
 ---
 
@@ -359,9 +403,32 @@ Validation: if `mcq`, options must be 2–4 strings; `correct_index` must be val
 - [ ] `app/models.py` — add `InviteToken` model (`invite_tokens` table)
 - [ ] `app/schemas.py` — add `InviteOut`, `JoinRequest` Pydantic schemas
 - [ ] `app/routers/group.py` — add `POST /invite` and `POST /join` endpoints; import `uuid`, `Request`, `InviteToken`
-- [ ] `app/routers/ai.py` — new file; `POST /ai/generate-flashcards`; reads notes + PDFs; calls Anthropic API
+- [ ] `app/routers/ai.py` — new file; `POST /ai/generate-flashcards`; handles `file_id` (single-file mode) or `source` (batch mode); calls Anthropic SDK directly (`anthropic.Anthropic(api_key=...)`) — no LangChain; guards import with try/except to return 503 instead of crashing
 - [ ] `app/main.py` — import and register `ai` router with `prefix="/api"`
-- [ ] `requirements.txt` — add `anthropic>=0.25`, `pymupdf>=1.24`
+- [ ] `requirements.txt` — add `anthropic>=0.25`, `pymupdf>=1.24` (must be installed in the project virtualenv)
+
+**Phase 4 (confidence progress + Gemini):**
+- [ ] `app/database.py` — in `migrate_sqlite_schema`, add `_add_column_if_missing(connection, "study_progress", "confidence INTEGER DEFAULT 0")` after the existing rebuild checks; the helper is already idempotent via `PRAGMA table_info`
+- [ ] `app/models.py` — add `confidence = Column(Integer, nullable=False, default=0)` to `StudyProgress` after `progress_pct`; keep `progress_pct` for `create_all` NOT NULL compatibility (always written as 0, overridden at read time)
+- [ ] `app/schemas.py`:
+  - Replace `ProgressUpdate` body: `confidence: int = Field(ge=0, le=2)` + `course_id`; remove `progress_pct`
+  - Add `confidence: int` field to `ProgressOut`; keep `progress_pct` (computed at API layer, not from DB)
+  - Add new `ProgressCreate` schema: `subject: str`, `course_id: int`
+  - Extend `AIGenerateFlashcardsRequest`: add `provider: Literal["anthropic","gemini"] = "anthropic"` and `gemini_api_key: Optional[str] = None`; rename existing `api_key` validator to handle both key fields
+- [ ] `app/routers/progress.py` — full rewrite:
+  - Add `CONFIDENCE_BASE = {0: 10, 1: 45, 2: 80}` constant
+  - `_get_hours_by_subject(db, course_id)` — single `GROUP BY subject` query on `FocusSession`; returns `{subject: hours_float}`
+  - `_build_out(p, hours_by_subject)` — computes `progress_pct = min(100, base + min(20, int(hours*4)))` from `CONFIDENCE_BASE[p.confidence]`; returns plain dict matching `ProgressOut`
+  - `GET /api/progress` — query all rows for course, call `_get_hours_by_subject` once, map with `_build_out`
+  - `PUT /api/progress/{subject}` — upsert by `(course_id, subject)`; write `confidence=data.confidence`, `progress_pct=0`; return `_build_out`
+  - `DELETE /api/progress/{subject}?course_id=` — 404 if not found, else `db.delete` + commit, 204
+  - `POST /api/progress` — body `ProgressCreate`; 409 if row already exists; create with `confidence=0, progress_pct=0`; return 201 with `_build_out`
+- [ ] `app/routers/ai.py` — add Gemini branch alongside existing Anthropic path:
+  - Import `google.generativeai as genai` with try/except; set `GENAI_IMPORT_ERROR` accordingly
+  - `_handle_gemini_error(exc)` — inspect `type(exc).__name__`: `PermissionDenied` → 401, `ResourceExhausted` → 429, else 502
+  - `_generate_with_gemini(api_key, prompt)` — `genai.configure(api_key=...)`, `genai.GenerativeModel("gemini-1.5-flash").generate_content(prompt)`, parse cards via existing `_extract_json_array`
+  - In `generate_flashcards` endpoint: after prompt assembly, branch on `data.provider`; Gemini path calls `_generate_with_gemini`; Anthropic path unchanged
+- [ ] `requirements.txt` — append `google-generativeai>=0.8`; install with `pip3.12 install google-generativeai` to match the uvicorn Python version
 
 ---
 
@@ -435,6 +502,60 @@ curl -X POST http://localhost:8000/api/ai/generate-flashcards \
 # → [{"front":"...","back":"..."},...]
 ```
 
+```bash
+# Phase 4: Confidence-based progress
+
+# Manual subject creation
+curl -X POST http://localhost:8000/api/progress \
+  -H 'Content-Type: application/json' \
+  -d '{"subject":"Graph Theory","course_id":1}'
+# → {"id":3,"course_id":1,"subject":"Graph Theory","confidence":0,"progress_pct":10,"updated_at":"..."}
+
+# Duplicate subject → 409
+curl -X POST http://localhost:8000/api/progress \
+  -H 'Content-Type: application/json' \
+  -d '{"subject":"Graph Theory","course_id":1}'
+# → 409 {"detail":"Subject already exists for this course"}
+
+# Cycle confidence to "Getting There"
+curl -X PUT "http://localhost:8000/api/progress/Graph%20Theory" \
+  -H 'Content-Type: application/json' \
+  -d '{"confidence":1,"course_id":1}'
+# → {"id":3,"course_id":1,"subject":"Graph Theory","confidence":1,"progress_pct":45,"updated_at":"..."}
+
+# After logging a 2h focus session for "Graph Theory" (2h × 4 = 8 bonus pts):
+curl "http://localhost:8000/api/progress?course_id=1"
+# → [...{"subject":"Graph Theory","confidence":1,"progress_pct":53}...]
+# (45 base + 8 activity bonus = 53)
+
+# Cycle to "Confident"
+curl -X PUT "http://localhost:8000/api/progress/Graph%20Theory" \
+  -H 'Content-Type: application/json' \
+  -d '{"confidence":2,"course_id":1}'
+# → {"confidence":2,"progress_pct":88,...}
+# (80 base + 8 activity bonus = 88)
+
+# Delete subject
+curl -X DELETE "http://localhost:8000/api/progress/Graph%20Theory?course_id=1"
+# → 204
+
+# Delete non-existent subject → 404
+curl -X DELETE "http://localhost:8000/api/progress/Nonexistent?course_id=1"
+# → 404 {"detail":"Subject not found for this course"}
+
+# Phase 4: Gemini flashcard generation (free tier, no billing required)
+curl -X POST http://localhost:8000/api/ai/generate-flashcards \
+  -H 'Content-Type: application/json' \
+  -d '{"course_id":1,"provider":"gemini","gemini_api_key":"AIza...","source":"both"}'
+# → [{"front":"...","back":"..."},...]
+
+# Gemini with invalid key → 401
+curl -X POST http://localhost:8000/api/ai/generate-flashcards \
+  -H 'Content-Type: application/json' \
+  -d '{"course_id":1,"provider":"gemini","gemini_api_key":"bad-key","source":"both"}'
+# → 401 {"detail":"Invalid Gemini API key"}
+```
+
 ## Key Decisions
 - All timestamps: ISO-8601 strings (not SQLAlchemy DateTime) for simple SQLite sorting
 - `StaticFiles(html=True)` mount last in `main.py` so API routes take priority
@@ -449,4 +570,9 @@ curl -X POST http://localhost:8000/api/ai/generate-flashcards \
 - Invite tokens are single-use (8-char UUID prefix); no expiry enforced at DB level — delete old rows manually if needed
 - AI API key is never stored server-side — passed per-request from the frontend's localStorage
 - PyMuPDF (`fitz`) used for PDF text extraction — cap at 3 files × 5 pages × 3000 chars to stay within LLM context limits
-- `claude-haiku-4-5-20251001` used for generation (fast, cheap); prompt requests JSON array response only
+- `claude-haiku-4-5-20251001` used for generation (fast, cheap); prompt requests JSON array response only — no markdown fences
+- `anthropic` SDK imported with try/except at module top; endpoint returns 503 if not installed (never crashes the whole app at startup)
+- `file_id` in the generate request takes priority over `source` — enables single-file targeting from the frontend file selector
+- **Confidence formula**: `progress_pct = min(100, CONFIDENCE_BASE[confidence] + min(20, floor(hours*4)))` — confidence drives the bulk of the score (10/45/80%) so it can't be gamed purely by logging study time; the activity bonus (max +20%) makes the bar visibly move as you study, keeping it motivational without inflating scores dishonestly. The `progress_pct` column in SQLite is always written as 0; the computed value is never persisted — this avoids stale data if the formula changes.
+- **Gemini chosen over Groq/rule-based**: Gemini Flash has a genuine free tier with no credit card required (rate-limited, not pay-per-token at low usage); Groq also has a free tier but Gemini's context window and reliability are better for document-based generation. Rule-based generation (keyword extraction) was rejected because the output quality is too poor to be useful for studying.
+- **`google-generativeai` SDK error handling**: Gemini SDK exceptions are caught by `type(exc).__name__` string comparison rather than importing `google.api_core.exceptions` — avoids a second import-guard block; the approach is fragile only if Google renames exception classes, which is rare and immediately visible in tests.

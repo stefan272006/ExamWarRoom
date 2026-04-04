@@ -53,9 +53,67 @@ Phase 3 adds workspace flexibility: a collapsible sidebar, floating draggable/re
 - [x] Re-fetch stats after each session completion
 
 ### 6. Study Progress
-- [x] Load from `GET /api/progress`, render bars
-- [x] Click to edit → `PUT /api/progress/{subject}`
-- [x] Auto-created when exam added
+Progress is confidence-driven — users tag each subject, and a computed score reflects both confidence + time studied.
+
+**Loading and rendering:**
+- [ ] Load from `GET /api/progress?course_id={id}` on init and course change; each item includes `{ id, subject, confidence, progress_pct, updated_at }`
+- [ ] `renderProgress(items)` — builds one row per subject:
+  - Confidence tag button: `<button class="confidence-tag c{n}" onclick="cycleConfidence(this)" data-subject="{subject}" data-confidence="{n}">{label}</button>`
+  - Labels: `0` → `🔴 Struggling`, `1` → `🟡 Getting There`, `2` → `🟢 Confident`
+  - Progress bar fill: `<div class="progress-fill c{n}" style="width:{progress_pct}%"></div>` — color matches confidence level (red / amber / green)
+  - Delete button: `<button class="icon-btn" onclick="deleteProgress(this)" data-subject="{subject}">×</button>`
+- [ ] After rendering rows, call `renderProgressInsights(items)`:
+  - If 2+ subjects exist: show "💪 Focus area: {lowest_pct subject}" and "⭐ Strength: {highest_pct subject}" in `#progress-insights` div below the list
+  - Else: clear `#progress-insights`
+
+**Confidence cycling (`cycleConfidence(btn)`):**
+- [ ] Read current `data-confidence` from button; compute `next = (current + 1) % 3`
+- [ ] Optimistic update: immediately update button class/text and bar color/class in DOM
+- [ ] `PUT /api/progress/{subject}` with `{ confidence: next, course_id }`
+- [ ] On success: apply returned `progress_pct` to bar width; update `data-confidence`
+- [ ] On error: roll back button and bar to previous values; show brief toast
+
+**Subject delete (`deleteProgress(btn)`):**
+- [ ] Fade the row out (CSS opacity transition); `DELETE /api/progress/{subject}?course_id={id}`
+- [ ] On success: remove row from DOM; re-run `renderProgressInsights` on remaining rows
+- [ ] On error: fade row back in
+
+**Manual subject add:**
+- [ ] `+ Subject` button in progress card header — `<button onclick="toggleSubjectForm()">+ Subject</button>`
+- [ ] Clicking it shows/hides an inline form: text input + "Add" button + `handleSubjectKey` on keydown (Enter submits, Escape hides)
+- [ ] `submitSubject()` — `POST /api/progress` with `{ subject, course_id }`; 409 → alert "Subject already exists"; on 201 → call `loadProgress()` to refresh the full list; hide form
+
+**CSS additions:**
+```css
+.confidence-tag { font-family: var(--font-mono); font-size: 0.7rem; padding: 0.1rem 0.4rem;
+  cursor: pointer; border: 1px solid; border-radius: 2px; background: none;
+  transition: all 0.2s ease; white-space: nowrap; }
+.confidence-tag.c0 { color: var(--red);   border-color: var(--red); }
+.confidence-tag.c1 { color: var(--amber); border-color: var(--amber-dim); }
+.confidence-tag.c2 { color: var(--green); border-color: var(--green); }
+.progress-fill.c0 { background: var(--red); }
+.progress-fill.c1 { background: var(--amber); }
+.progress-fill.c2 { background: var(--green); }
+.progress-insights { margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted);
+  display: flex; flex-direction: column; gap: 0.25rem; }
+```
+
+**HTML additions in progress card:**
+```html
+<!-- In card header, beside title -->
+<button onclick="toggleSubjectForm()">+ Subject</button>
+
+<!-- Inline form (hidden by default) -->
+<div id="subject-form" style="display:none">
+  <input id="subject-input" class="note-input" placeholder="Subject name"
+         onkeydown="handleSubjectKey(event)">
+  <button class="btn" onclick="submitSubject()">Add</button>
+</div>
+
+<!-- Below #progress-list -->
+<div id="progress-insights"></div>
+```
 
 ### 7. Flashcards (client-side → backend-backed)
 - [x] Remove hardcoded `cards` array
@@ -189,15 +247,39 @@ A generic JS utility (`const FloatWin = { ... }`) used by all floating panels.
 
 - [ ] `FloatWin.create(id, label, bodyHtml, opts)` — creates a `position:fixed` floating window appended to `<body>`
   - `opts`: `{ x, y, w, h, minW, minH, extraTitleHtml }`
-  - Title bar: `extraTitleHtml` (optional prefix, e.g. download button) + label + × close button
+  - Title bar: `extraTitleHtml` (optional prefix, e.g. download button) + label + `—` minimize button + × close button
   - Body: `position:relative`, `overflow:hidden` — iframes fill it absolutely
   - Resize handle: bottom-right 16×16px triangle (`cursor: se-resize`)
-- [ ] **Drag**: pointer events on titlebar; skips clicks on `button`, `a`, `input` children; constrained to viewport
-- [ ] **Resize**: pointer events on bottom-right handle; enforces `minW`/`minH`
+- [ ] **Drag — click-and-hold only (no ghost-drag)**:
+  - Attach `pointerdown` listener on the titlebar element
+  - Set a boolean `_isDragging = false` — only set to `true` inside the `pointerdown` handler when `event.buttons === 1` (primary mouse button held)
+  - `pointermove` on `document` checks `_isDragging` before moving — if `false`, return immediately
+  - `pointerup` and `pointercancel` on `document` reset `_isDragging = false`
+  - `setPointerCapture` on titlebar in `pointerdown` to keep tracking outside the element
+  - Must skip drag initiation when `pointerdown` target is a `button`, `a`, or `input` child
+  - Constrain position so window never leaves viewport
+  - **No hover-based movement** — window position must not change unless `event.buttons === 1` is confirmed
+- [ ] **Resize — click-and-hold only**:
+  - Same `_isResizing` boolean pattern as drag; only set `true` in `pointerdown` handler with `event.buttons === 1`
+  - `pointermove` checks `_isResizing` before resizing — if `false`, return immediately
+  - `setPointerCapture` on resize handle in `pointerdown`
+  - Enforces `minW`/`minH`
 - [ ] **Z-order**: `pointerdown` on any float window brings it to front (`z-index` counter `_floatZ`)
-- [ ] `FloatWin.close(id)` — removes window from DOM
-- [ ] `FloatWin.isOpen(id)` — returns boolean
+- [ ] `FloatWin.close(id)` — removes window from DOM; clears it from the minimized items bar if present
+- [ ] `FloatWin.minimize(id)` — hides the window body + resize handle (sets `display:none`); collapses the window to just its titlebar height; adds a pill to the minimized items bar (see §22a)
+- [ ] `FloatWin.restore(id)` — removes the minimized bar pill; restores the window to its last known `{ x, y, w, h }` (stored in a `_floatState` map keyed by window id)
+- [ ] `FloatWin.isOpen(id)` — returns boolean (true even when minimized)
 - [ ] Multiple float windows can be open simultaneously and independently moved
+
+### 18a. Minimized Items Bar
+A fixed taskbar at the bottom of the screen that shows collapsed floating windows.
+
+- [ ] `<div id="minimized-bar">` — `position:fixed; bottom:0; left:0; right:0; height:36px; display:flex; align-items:center; gap:8px; padding:0 12px; background:#111; border-top:1px solid #333; z-index:9999`
+- [ ] Hidden (no children) by default; becomes visible when at least one window is minimized
+- [ ] Each minimized window appears as a pill: `<button class="min-pill">🗖 {label}</button>` — amber text, matte background, `cursor:pointer`
+- [ ] Clicking a pill calls `FloatWin.restore(id)` — restores the window to its last position/size and removes the pill
+- [ ] The × on a pill calls `FloatWin.close(id)` — permanently closes the window and removes the pill
+- [ ] The `—` minimize button in each FloatWin titlebar must not be confused with the × close button — use distinct icons: `—` for minimize, `×` for close
 
 ### 19. Floating Video Player
 Replaces the full-screen takeover approach. Dashboard stays visible while video plays.
@@ -221,20 +303,42 @@ File preview no longer replaces the drawer file list; opens as its own floating 
 - [ ] Video and file preview windows can be open simultaneously and independently arranged
 
 ### 21. Settings Modal + Real AI Flashcard Generation
-Replaces the mock `generateFromNotes()` with a real Claude API call.
+Replaces the mock `generateFromNotes()` with a real API call supporting both Anthropic and Google Gemini.
 
 - [ ] **Settings modal** (`#settings-modal`): full-screen backdrop, centered panel
   - Opened via `⚙` button in `.topbar-right`
-  - Single field: Anthropic API key (`type="password"`, placeholder `sk-ant-api03-…`)
-  - Saved to `localStorage['warroom_ai_key']`; cleared if field left blank
+  - **Two key fields:**
+    - Anthropic API key (`id="settings-api-key"`, `type="password"`, placeholder `sk-ant-api03-…`) — paid, stored in `localStorage['warroom_ai_key']`
+    - Gemini API key (`id="settings-gemini-key"`, `type="password"`, placeholder `AIza…`) — free tier, stored in `localStorage['warroom_gemini_key']`; label includes hint "Free at aistudio.google.com"
+  - `saveApiKey()` writes or clears both keys; cleared if field left blank
+  - `openSettings()` also populates both fields from localStorage before showing the modal
   - Backdrop click closes the modal
 - [ ] `openSettings()` / `closeSettings()` / `saveApiKey()` functions
-- [ ] `generateFromNotes()` — real implementation:
-  - If no API key in localStorage → calls `openSettings()` instead
-  - `POST /api/ai/generate-flashcards` with `{ course_id, api_key, source: 'both' }`
-  - On success: calls `renderFlashcardList(existing, generated)` with real cards + "Generated" badge
-  - Error handling: 401 → prompt to fix key in settings; 422 → "no content found" message
-  - Button shows `⟳ Generating…` during request; restored on completion
+- [ ] **File selector in Flashcards Browse tab** (above the ⚡ Generate button):
+  - `<select id="flashcard-file-select">` — `<option value="">From notes & all files</option>` as default, then one `<option value="{id}">{filename}</option>` per uploaded file for the active course
+  - Populated by `loadFlashcardFileOptions()` which calls `GET /api/files?course_id={id}` (no section filter) and fills the select
+  - Call `loadFlashcardFileOptions()` on panel open and on course change
+  - Styled to match `.note-input`; label: "Generate from:"
+- [ ] `generateFromNotes()` — real implementation with provider selection:
+  - Read both keys: `const anthropicKey = localStorage['warroom_ai_key']`, `const geminiKey = localStorage['warroom_gemini_key']`
+  - If neither key is set → call `openSettings()` and return
+  - **Provider selection**: prefer Anthropic if `anthropicKey` is set; fall back to Gemini if only `geminiKey` is set
+  - Read selected file: `const fileId = document.getElementById('flashcard-file-select').value`
+  - Build request body:
+    - `provider`: `"anthropic"` or `"gemini"` depending on selection
+    - `api_key` / `gemini_api_key`: whichever key the selected provider uses
+    - If `fileId` non-empty: include `file_id: parseInt(fileId)`; else include `source: 'both'`
+  - Button shows `⟳ Generating (Anthropic)…` or `⟳ Generating (Gemini)…` and is disabled during request
+  - On success: call `renderFlashcardList(existing, generated)` with real cards + "Generated" badge
+  - **Error handling:**
+    - 400 → log only (guard above prevents reaching this)
+    - 401 → show inline error "Invalid API key — update in ⚙ Settings"; call `openSettings()`
+    - 402 (Anthropic no credits) → if Gemini key exists, auto-retry with Gemini via `_retryWithGemini(body)` helper; else show inline error "Anthropic account has no credits — add a Gemini key in ⚙ Settings for free generation"
+    - 422 → show inline error "No content found for this selection"
+    - 429 (Gemini quota) → show inline error "Gemini quota exceeded — try again later"
+    - 503 → show inline error "SDK not installed on server — run `pip install anthropic` or `pip install google-generativeai`"
+    - Other → show inline error "Generation failed, try again"
+  - `_retryWithGemini(originalBody)` — extracted helper; replaces `provider`/key fields with Gemini values; re-POSTs; avoids recursive `generateFromNotes()` call; handles 429 and other errors inline without further fallback
 
 ### 22. Study Group Invite Links
 Replaces the name-only invite form with a shareable single-use link system.
@@ -363,15 +467,42 @@ document.addEventListener('pointerup', () => {
 **Floating windows (Phase 3):**
 - [ ] Click ▶ on a video → dashboard stays visible; floating video window appears
 - [ ] Drag video window by titlebar; resize from bottom-right corner handle
+- [ ] **Hovering over a window does NOT move or resize it** — movement only occurs while primary mouse button is held (ghost-drag bug fixed)
 - [ ] Click file in drawer → floating file preview appears with ↓ download button in titlebar
 - [ ] Video and file preview windows open simultaneously and independently draggable
 - [ ] Closing float window via × saves video timestamp
 
-**AI flashcards (Phase 3):**
-- [ ] Click ⚙ → settings modal opens; API key saved to localStorage
-- [ ] Click ⚡ Generate without key → settings modal opens automatically
-- [ ] With key + uploaded PDF/notes → real flashcards generated and shown with "Generated" badge
-- [ ] Invalid key → error prompt to update settings
+**Window minimization (Phase 3):**
+- [ ] Click `—` in a float window header → window body collapses; a pill appears in the minimized bar at the bottom of the screen
+- [ ] Minimized bar is invisible when no windows are minimized
+- [ ] Clicking the pill in the minimized bar → window re-opens at its last known position and size
+- [ ] Clicking × on the minimized bar pill → window is permanently closed and pill removed
+- [ ] Multiple windows can be minimized simultaneously; each has its own pill
+
+**Study Progress — confidence tags (Phase 4):**
+- [ ] Add exam → subject auto-appears in progress list at 🔴 Struggling (confidence=0, pct=10)
+- [ ] Click tag → cycles 🔴→🟡→🟢→🔴; bar color and width update immediately (optimistic)
+- [ ] After server confirms: bar width reflects `progress_pct` from response (includes activity bonus)
+- [ ] Log a 2h focus session for a subject → revisit progress → bar nudges up even without changing tag
+- [ ] Click × delete button → row fades out and disappears; re-renders insights for remaining subjects
+- [ ] Click `+ Subject` → inline form appears; type name + Enter → subject added at 🔴 Struggling
+- [ ] Duplicate subject name → alert "Subject already exists"
+- [ ] With 2+ subjects: "💪 Focus area:" shows lowest-pct subject; "⭐ Strength:" shows highest-pct subject
+
+**AI flashcards (Phase 3 + Phase 4):**
+- [ ] Click ⚙ → settings modal opens with both Anthropic and Gemini key fields
+- [ ] Click ⚡ Generate without any key → settings modal opens automatically
+- [ ] "Generate from:" dropdown lists all uploaded files for the active course
+- [ ] Select a specific file → Generate → real flashcards extracted from that file only
+- [ ] Select "From notes & all files" → Generate → content pulled from notes + all uploaded files
+- [ ] Anthropic key set, valid → button shows "⟳ Generating (Anthropic)…" → real cards appear
+- [ ] Invalid Anthropic key → settings modal auto-opens; inline error shown
+- [ ] Anthropic key has no credits (402) + Gemini key is set → auto-retries with Gemini; cards appear
+- [ ] Anthropic key has no credits (402) + no Gemini key → inline error prompting user to add Gemini key
+- [ ] Only Gemini key set → button shows "⟳ Generating (Gemini)…" → real cards appear
+- [ ] Gemini quota exceeded (429) → inline "quota exceeded" error (not a generic 500)
+- [ ] No content for selection → "No content found" inline error
+- [ ] SDK not installed on server → "run pip install …" inline error (not a generic 500)
 
 **Invite links (Phase 3):**
 - [ ] Study Group → ⛓ Link → floating window with copyable URL

@@ -134,18 +134,34 @@ class NoteOut(BaseModel):
 # ---- Study Progress ----
 
 class ProgressUpdate(BaseModel):
-    progress_pct: int = Field(ge=0, le=100)
+    confidence: Optional[int] = Field(default=None, ge=0, le=2)
+    progress_pct: Optional[int] = Field(default=None, ge=0, le=100)
     course_id: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_progress_input(self):
+        if self.confidence is None and self.progress_pct is None:
+            raise ValueError("confidence is required")
+        return self
+
+
+class ProgressCreate(BaseModel):
+    subject: str = Field(min_length=1)
+    course_id: int = Field(gt=0)
+
+    @field_validator("subject")
+    @classmethod
+    def strip_subject(cls, value: str) -> str:
+        return _strip_required_text(value, "subject")
 
 
 class ProgressOut(BaseModel):
     id: int
     course_id: int
     subject: str
+    confidence: int
     progress_pct: int
     updated_at: str
-
-    model_config = {"from_attributes": True}
 
 
 # ---- Files ----
@@ -309,14 +325,18 @@ class JoinRequest(BaseModel):
 # ---- AI ----
 
 FlashcardSource = Literal["notes", "uploaded_files", "both"]
+AIProvider = Literal["anthropic", "gemini"]
 
 
 class AIGenerateFlashcardsRequest(BaseModel):
     course_id: int = Field(gt=0)
+    provider: AIProvider = "anthropic"
     api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+    file_id: Optional[int] = Field(default=None, gt=0)
     source: FlashcardSource = "both"
 
-    @field_validator("api_key")
+    @field_validator("api_key", "gemini_api_key")
     @classmethod
     def strip_api_key(cls, value: Optional[str]) -> Optional[str]:
         if value is None:

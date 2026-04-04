@@ -107,6 +107,7 @@ def get_file_content(file_id: int, section: str | None = None, db: Session = Dep
         path=file_path,
         media_type=media_type,
         filename=uploaded_file.filename,
+        content_disposition_type="inline",
     )
 
 
