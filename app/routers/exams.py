@@ -30,6 +30,17 @@ def _ensure_progress_subject(db: Session, course_id: int, subject: str) -> None:
         )
 
 
+def _get_exam_or_404(db: Session, exam_id: int, course_id: int | None = None) -> Exam:
+    exam = db.get(Exam, exam_id)
+    if exam is None:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    if course_id is not None and exam.course_id != course_id:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    return exam
+
+
 @router.get("", response_model=list[ExamOut])
 def list_exams(course_id: int, db: Session = Depends(get_db)):
     get_course_or_404(db, course_id)
@@ -63,9 +74,9 @@ def create_exam(data: ExamCreate, db: Session = Depends(get_db)):
 
 @router.put("/{exam_id}", response_model=ExamOut)
 def update_exam(exam_id: int, data: ExamUpdate, db: Session = Depends(get_db)):
-    exam = db.get(Exam, exam_id)
-    if not exam:
-        raise HTTPException(status_code=404, detail="Exam not found")
+    if data.course_id is not None:
+        get_course_or_404(db, data.course_id)
+    exam = _get_exam_or_404(db, exam_id, data.course_id)
 
     if data.name is not None:
         exam.name = data.name
@@ -83,10 +94,10 @@ def update_exam(exam_id: int, data: ExamUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{exam_id}", status_code=204)
-def delete_exam(exam_id: int, db: Session = Depends(get_db)) -> Response:
-    exam = db.get(Exam, exam_id)
-    if not exam:
-        raise HTTPException(status_code=404, detail="Exam not found")
+def delete_exam(exam_id: int, course_id: int | None = None, db: Session = Depends(get_db)) -> Response:
+    if course_id is not None:
+        get_course_or_404(db, course_id)
+    exam = _get_exam_or_404(db, exam_id, course_id)
 
     db.delete(exam)
     db.commit()

@@ -9,6 +9,17 @@ from app.schemas import FlashcardCreate, FlashcardOut, FlashcardUpdate
 router = APIRouter(prefix="/flashcards", tags=["flashcards"])
 
 
+def _get_flashcard_or_404(db: Session, flashcard_id: int, course_id: int | None = None) -> Flashcard:
+    flashcard = db.get(Flashcard, flashcard_id)
+    if flashcard is None:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+
+    if course_id is not None and flashcard.course_id != course_id:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+
+    return flashcard
+
+
 @router.get("", response_model=list[FlashcardOut])
 def list_flashcards(course_id: int, db: Session = Depends(get_db)):
     get_course_or_404(db, course_id)
@@ -38,10 +49,15 @@ def create_flashcard(data: FlashcardCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{flashcard_id}", response_model=FlashcardOut)
-def update_flashcard(flashcard_id: int, data: FlashcardUpdate, db: Session = Depends(get_db)):
-    flashcard = db.get(Flashcard, flashcard_id)
-    if flashcard is None:
-        raise HTTPException(status_code=404, detail="Flashcard not found")
+def update_flashcard(
+    flashcard_id: int,
+    data: FlashcardUpdate,
+    course_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    if course_id is not None:
+        get_course_or_404(db, course_id)
+    flashcard = _get_flashcard_or_404(db, flashcard_id, course_id)
 
     changed = False
     if data.front is not None:
@@ -61,10 +77,14 @@ def update_flashcard(flashcard_id: int, data: FlashcardUpdate, db: Session = Dep
 
 
 @router.delete("/{flashcard_id}", status_code=204)
-def delete_flashcard(flashcard_id: int, db: Session = Depends(get_db)) -> Response:
-    flashcard = db.get(Flashcard, flashcard_id)
-    if flashcard is None:
-        raise HTTPException(status_code=404, detail="Flashcard not found")
+def delete_flashcard(
+    flashcard_id: int,
+    course_id: int | None = None,
+    db: Session = Depends(get_db),
+) -> Response:
+    if course_id is not None:
+        get_course_or_404(db, course_id)
+    flashcard = _get_flashcard_or_404(db, flashcard_id, course_id)
 
     db.delete(flashcard)
     db.commit()

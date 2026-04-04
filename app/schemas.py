@@ -56,6 +56,7 @@ class ExamUpdate(BaseModel):
     name: Optional[str] = None
     subject: Optional[str] = None
     exam_date: Optional[str] = None
+    course_id: Optional[int] = Field(default=None, gt=0)
 
     @field_validator("name", "subject", "exam_date")
     @classmethod
@@ -134,15 +135,8 @@ class NoteOut(BaseModel):
 # ---- Study Progress ----
 
 class ProgressUpdate(BaseModel):
-    confidence: Optional[int] = Field(default=None, ge=0, le=2)
-    progress_pct: Optional[int] = Field(default=None, ge=0, le=100)
+    confidence: int = Field(ge=0, le=2)
     course_id: int = Field(gt=0)
-
-    @model_validator(mode="after")
-    def validate_progress_input(self):
-        if self.confidence is None and self.progress_pct is None:
-            raise ValueError("confidence is required")
-        return self
 
 
 class ProgressCreate(BaseModel):

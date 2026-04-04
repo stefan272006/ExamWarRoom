@@ -29,7 +29,13 @@ except ImportError as exc:
 else:
     PYMUPDF_IMPORT_ERROR = None
 
-import httpx
+try:
+    import google.generativeai as genai  # type: ignore
+except ImportError as exc:
+    genai = None  # type: ignore[assignment]
+    GEMINI_IMPORT_ERROR = exc
+else:
+    GEMINI_IMPORT_ERROR = None
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -67,14 +73,25 @@ def _raise_pymupdf_unavailable() -> None:
     ) from PYMUPDF_IMPORT_ERROR
 
 
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.1-8b-instant"
-ANTHROPIC_MAX_TOKENS = 3072
-GROQ_MAX_TOKENS = 3072
-MAX_GENERATED_FLASHCARDS = 40
+def _raise_gemini_unavailable() -> None:
+    raise HTTPException(
+        status_code=503,
+        detail="Google Generative AI SDK not installed. Run: pip install google-generativeai",
+    ) from GEMINI_IMPORT_ERROR
 
 
-def _extract_pdf_text(file_path: Path, char_limit: int = 12000, max_pages: int = 12) -> str:
+ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+ANTHROPIC_MAX_TOKENS = 1024
+GEMINI_MODEL = "gemini-1.5-flash"
+MAX_GENERATED_FLASHCARDS = 10
+MAX_PDF_FILES = 3
+PDF_MAX_PAGES = 5
+PDF_CHAR_LIMIT = 3000
+TEXT_CHAR_LIMIT = 6000
+MAX_SOURCE_CHARS = 6000
+
+
+def _extract_pdf_text(file_path: Path, char_limit: int = PDF_CHAR_LIMIT, max_pages: int = PDF_MAX_PAGES) -> str:
     if fitz is None:
         raise PDFExtractionUnavailable("PyMuPDF is not installed")
 
@@ -88,7 +105,7 @@ def _extract_pdf_text(file_path: Path, char_limit: int = 12000, max_pages: int =
     return extracted.strip()[:char_limit]
 
 
-def _extract_docx_text(file_path: Path, char_limit: int = 14000) -> str:
+def _extract_docx_text(file_path: Path, char_limit: int = TEXT_CHAR_LIMIT) -> str:
     try:
         with ZipFile(file_path) as archive:
             xml_bytes = archive.read("word/document.xml")
@@ -109,7 +126,7 @@ def _extract_docx_text(file_path: Path, char_limit: int = 14000) -> str:
     return "\n".join(paragraphs).strip()[:char_limit]
 
 
-def _extract_text_file(file_path: Path, char_limit: int = 14000) -> str:
+def _extract_text_file(file_path: Path, char_limit: int = TEXT_CHAR_LIMIT) -> str:
     try:
         return file_path.read_text(encoding="utf-8", errors="ignore").strip()[:char_limit]
     except OSError:
@@ -119,10 +136,9 @@ def _extract_text_file(file_path: Path, char_limit: int = 14000) -> str:
 def _extract_uploaded_file_text(
     uploaded_file: UploadedFile,
     *,
-    pdf_char_limit: int = 12000,
-    pdf_max_pages: int = 12,
-    docx_char_limit: int = 14000,
-    text_char_limit: int = 14000,
+    pdf_char_limit: int = PDF_CHAR_LIMIT,
+    pdf_max_pages: int = PDF_MAX_PAGES,
+    text_char_limit: int = TEXT_CHAR_LIMIT,
 ) -> str:
     file_path = UPLOAD_ROOT / uploaded_file.section / uploaded_file.stored_name
     if not file_path.exists():
@@ -135,7 +151,7 @@ def _extract_uploaded_file_text(
         if file_type == "PDF" or suffix == ".pdf":
             return _extract_pdf_text(file_path, char_limit=pdf_char_limit, max_pages=pdf_max_pages)
         if file_type == "DOCX" or suffix == ".docx":
-            return _extract_docx_text(file_path, char_limit=docx_char_limit)
+            return _extract_docx_text(file_path, char_limit=text_char_limit)
         if suffix == ".txt":
             return _extract_text_file(file_path, char_limit=text_char_limit)
         return ""
@@ -154,12 +170,12 @@ def _list_course_pdf_files(db: Session, course_id: int) -> list[UploadedFile]:
             UploadedFile.file_type == "PDF",
         )
         .order_by(UploadedFile.uploaded_at.desc())
-        .limit(3)
+        .limit(MAX_PDF_FILES)
         .all()
     )
 
 
-def _collect_pdf_content(db: Session, course_id: int) -> list[str]:
+def _collect_uploaded_file_content(db: Session, course_id: int) -> list[str]:
     chunks: list[str] = []
     for uploaded_file in _list_course_pdf_files(db, course_id):
         extracted = _extract_uploaded_file_text(uploaded_file)
@@ -168,7 +184,7 @@ def _collect_pdf_content(db: Session, course_id: int) -> list[str]:
     return chunks
 
 
-def _truncate_chunks(chunks: list[str], limit: int = 18000) -> str:
+def _truncate_chunks(chunks: list[str], limit: int = MAX_SOURCE_CHARS) -> str:
     if not chunks:
         return ""
 
@@ -248,6 +264,15 @@ def _parse_generated_cards(response_text: str) -> list[GeneratedFlashcard]:
     return cards
 
 
+def _build_flashcard_prompt(source_text: str) -> str:
+    return (
+        "Generate exactly 10 study flashcards from the provided material. "
+        "Return raw JSON only as an array of objects with keys front and back. "
+        "Do not wrap the JSON in markdown fences.\n\n"
+        f"Source material:\n{source_text}"
+    )
+
+
 def _generate_with_anthropic(api_key: str, prompt: str) -> list[GeneratedFlashcard]:
     if anthropic is None:
         _raise_anthropic_unavailable()
@@ -255,57 +280,72 @@ def _generate_with_anthropic(api_key: str, prompt: str) -> list[GeneratedFlashca
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=ANTHROPIC_MODEL,
             max_tokens=ANTHROPIC_MAX_TOKENS,
             messages=[{"role": "user", "content": prompt}],
         )
-        return _parse_generated_cards(response.content[0].text)
+        text_blocks = [block.text for block in response.content if getattr(block, "type", None) == "text" and getattr(block, "text", None)]
+        return _parse_generated_cards("\n".join(text_blocks))
     except anthropic.AuthenticationError as exc:
         raise HTTPException(status_code=401, detail="Invalid Anthropic API key") from exc
     except anthropic.BadRequestError as exc:
         detail = str(exc)
         if "credit" in detail.lower() or "billing" in detail.lower():
-            raise HTTPException(status_code=402, detail="Anthropic account has no credits. Add credits at console.anthropic.com → Plans & Billing.") from exc
-        raise HTTPException(status_code=502, detail=f"Anthropic rejected the request: {detail}") from exc
+            raise HTTPException(status_code=402, detail="Anthropic account has no credits") from exc
+        raise HTTPException(status_code=502, detail="Anthropic request failed") from exc
 
 
-def _generate_with_groq(api_key: str, prompt: str) -> list[GeneratedFlashcard]:
-    payload = {
-        "model": GROQ_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": GROQ_MAX_TOKENS,
-        "temperature": 0.7,
-    }
+def _handle_gemini_error(exc: Exception) -> None:
+    error_name = type(exc).__name__
+    if error_name == "PermissionDenied":
+        raise HTTPException(status_code=401, detail="Invalid Gemini API key") from exc
+    if error_name == "ResourceExhausted":
+        raise HTTPException(status_code=429, detail="Gemini quota exceeded") from exc
+    raise HTTPException(status_code=502, detail="Gemini request failed") from exc
+
+
+def _extract_gemini_text(response) -> str:
     try:
-        resp = httpx.post(
-            GROQ_URL,
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=payload,
-            timeout=30,
-        )
-    except httpx.RequestError as exc:
-        raise HTTPException(status_code=502, detail=f"Groq request failed: {exc}") from exc
+        text = response.text
+    except Exception:
+        text = None
 
-    if resp.status_code in (401, 403):
-        raise HTTPException(status_code=401, detail="Invalid Groq API key")
-    if resp.status_code == 429:
-        raise HTTPException(status_code=429, detail="Groq rate limit exceeded — wait a moment and try again.")
-    if resp.status_code != 200:
-        logger.error("Groq HTTP %s: %s", resp.status_code, resp.text[:300])
-        raise HTTPException(status_code=502, detail=f"Groq error {resp.status_code}: {resp.text[:200]}")
+    if isinstance(text, str) and text.strip():
+        return text
+
+    candidates = getattr(response, "candidates", None) or []
+    for candidate in candidates:
+        content = getattr(candidate, "content", None)
+        parts = getattr(content, "parts", None) or []
+        for part in parts:
+            part_text = getattr(part, "text", None)
+            if isinstance(part_text, str) and part_text.strip():
+                return part_text
+
+    raise HTTPException(status_code=502, detail="Unexpected Gemini response format")
+
+
+def _generate_with_gemini(api_key: str, prompt: str) -> list[GeneratedFlashcard]:
+    if genai is None:
+        _raise_gemini_unavailable()
 
     try:
-        text = resp.json()["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, ValueError) as exc:
-        raise HTTPException(status_code=502, detail="Unexpected Groq response format") from exc
-
-    return _parse_generated_cards(text)
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        response = model.generate_content(prompt)
+        return _parse_generated_cards(_extract_gemini_text(response))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _handle_gemini_error(exc)
 
 
 def _validate_provider_request(data: AIGenerateFlashcardsRequest) -> None:
     if data.provider == "gemini":
         if not data.gemini_api_key:
             raise HTTPException(status_code=400, detail="gemini_api_key is required")
+        if genai is None:
+            _raise_gemini_unavailable()
         return
 
     if not data.api_key:
@@ -325,10 +365,9 @@ def generate_flashcards(data: AIGenerateFlashcardsRequest, db: Session = Depends
             uploaded_file = _get_uploaded_file_or_404(db, data.course_id, data.file_id)
             extracted = _extract_uploaded_file_text(
                 uploaded_file,
-                pdf_char_limit=18000,
-                pdf_max_pages=20,
-                docx_char_limit=18000,
-                text_char_limit=18000,
+                pdf_char_limit=PDF_CHAR_LIMIT,
+                pdf_max_pages=PDF_MAX_PAGES,
+                text_char_limit=TEXT_CHAR_LIMIT,
             )
         except PDFExtractionUnavailable:
             _raise_pymupdf_unavailable()
@@ -342,30 +381,21 @@ def generate_flashcards(data: AIGenerateFlashcardsRequest, db: Session = Depends
 
         if data.source in {"uploaded_files", "both"}:
             try:
-                chunks.extend(_collect_pdf_content(db, data.course_id))
+                chunks.extend(_collect_uploaded_file_content(db, data.course_id))
             except PDFExtractionUnavailable:
                 if not chunks:
                     _raise_pymupdf_unavailable()
 
-    source_text = _truncate_chunks(chunks, limit=24000 if data.file_id is not None else 18000)
+    source_text = _truncate_chunks(chunks, limit=MAX_SOURCE_CHARS)
     if not source_text:
         raise HTTPException(status_code=422, detail="No content found for flashcard generation")
 
-    prompt = (
-        "Generate a comprehensive set of study flashcards from the provided material. "
-        "The flashcards should cover the key points, definitions, formulas, concepts, steps, and likely testable facts. "
-        "Return raw JSON only as an array of objects with keys front and back. "
-        "Do not wrap the JSON in markdown fences. "
-        "Each card must be concise, specific, non-empty, and not redundant. "
-        "Generate as many cards as needed to cover the material well, usually between 15 and 30 cards. "
-        "Do not stop at 10 if the material supports more cards.\n\n"
-        f"Source material:\n{source_text}"
-    )
+    prompt = _build_flashcard_prompt(source_text)
 
     try:
         if data.provider == "gemini":
             assert data.gemini_api_key is not None
-            return _generate_with_groq(data.gemini_api_key, prompt)
+            return _generate_with_gemini(data.gemini_api_key, prompt)
 
         assert data.api_key is not None
         return _generate_with_anthropic(data.api_key, prompt)

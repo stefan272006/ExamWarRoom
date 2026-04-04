@@ -23,6 +23,17 @@ def _serialize_question(question: Question) -> QuestionOut:
     )
 
 
+def _get_question_or_404(db: Session, question_id: int, course_id: int | None = None) -> Question:
+    question = db.get(Question, question_id)
+    if question is None:
+        raise HTTPException(status_code=404, detail="Question not found")
+
+    if course_id is not None and question.course_id != course_id:
+        raise HTTPException(status_code=404, detail="Question not found")
+
+    return question
+
+
 @router.get("", response_model=list[QuestionOut])
 def list_questions(course_id: int, db: Session = Depends(get_db)):
     get_course_or_404(db, course_id)
@@ -53,10 +64,10 @@ def create_question(data: QuestionCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{question_id}", status_code=204)
-def delete_question(question_id: int, db: Session = Depends(get_db)) -> Response:
-    question = db.get(Question, question_id)
-    if question is None:
-        raise HTTPException(status_code=404, detail="Question not found")
+def delete_question(question_id: int, course_id: int | None = None, db: Session = Depends(get_db)) -> Response:
+    if course_id is not None:
+        get_course_or_404(db, course_id)
+    question = _get_question_or_404(db, question_id, course_id)
 
     db.delete(question)
     db.commit()

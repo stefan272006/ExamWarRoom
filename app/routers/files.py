@@ -37,6 +37,17 @@ def _file_path(section: str, stored_name: str) -> Path:
     return UPLOAD_ROOT / section / stored_name
 
 
+def _get_uploaded_file_or_404(db: Session, file_id: int, course_id: int | None = None) -> UploadedFile:
+    uploaded_file = db.get(UploadedFile, file_id)
+    if uploaded_file is None:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if course_id is not None and uploaded_file.course_id != course_id:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return uploaded_file
+
+
 @router.get("", response_model=list[UploadedFileOut])
 def list_files(course_id: int, section: str | None = None, db: Session = Depends(get_db)):
     get_course_or_404(db, course_id)
@@ -90,10 +101,15 @@ def upload_file(
 
 
 @router.get("/{file_id}/content")
-def get_file_content(file_id: int, section: str | None = None, db: Session = Depends(get_db)):
-    uploaded_file = db.get(UploadedFile, file_id)
-    if uploaded_file is None:
-        raise HTTPException(status_code=404, detail="File not found")
+def get_file_content(
+    file_id: int,
+    section: str | None = None,
+    course_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    if course_id is not None:
+        get_course_or_404(db, course_id)
+    uploaded_file = _get_uploaded_file_or_404(db, file_id, course_id)
 
     if section is not None and uploaded_file.section != _validate_section(section):
         raise HTTPException(status_code=404, detail="File not found")
@@ -112,10 +128,10 @@ def get_file_content(file_id: int, section: str | None = None, db: Session = Dep
 
 
 @router.delete("/{file_id}", status_code=204)
-def delete_file(file_id: int, db: Session = Depends(get_db)) -> Response:
-    uploaded_file = db.get(UploadedFile, file_id)
-    if uploaded_file is None:
-        raise HTTPException(status_code=404, detail="File not found")
+def delete_file(file_id: int, course_id: int | None = None, db: Session = Depends(get_db)) -> Response:
+    if course_id is not None:
+        get_course_or_404(db, course_id)
+    uploaded_file = _get_uploaded_file_or_404(db, file_id, course_id)
 
     file_path = _file_path(uploaded_file.section, uploaded_file.stored_name)
     file_path.unlink(missing_ok=True)

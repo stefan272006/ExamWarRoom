@@ -54,17 +54,6 @@ def _build_out(progress: StudyProgress, hours_by_subject: dict[str, float]) -> d
     }
 
 
-def _resolve_confidence(data: ProgressUpdate) -> int:
-    if data.confidence is not None:
-        return data.confidence
-    assert data.progress_pct is not None
-    if data.progress_pct >= 80:
-        return 2
-    if data.progress_pct >= 45:
-        return 1
-    return 0
-
-
 @router.get("", response_model=list[ProgressOut])
 def list_progress(course_id: int, db: Session = Depends(get_db)):
     get_course_or_404(db, course_id)
@@ -110,7 +99,6 @@ def create_progress(data: ProgressCreate, db: Session = Depends(get_db)):
 def upsert_progress(subject: str, data: ProgressUpdate, db: Session = Depends(get_db)):
     get_course_or_404(db, data.course_id)
     subject = _normalize_subject(subject)
-    confidence = _resolve_confidence(data)
     progress = (
         db.query(StudyProgress)
         .filter(
@@ -124,13 +112,13 @@ def upsert_progress(subject: str, data: ProgressUpdate, db: Session = Depends(ge
         progress = StudyProgress(
             course_id=data.course_id,
             subject=subject,
-            confidence=confidence,
+            confidence=data.confidence,
             progress_pct=0,
             updated_at=timestamp_now(),
         )
         db.add(progress)
     else:
-        progress.confidence = confidence
+        progress.confidence = data.confidence
         progress.progress_pct = 0
         progress.updated_at = timestamp_now()
 

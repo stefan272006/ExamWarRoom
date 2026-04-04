@@ -48,6 +48,17 @@ def _parse_playlist_entries(raw_output: str) -> list[dict[str, str]]:
     return entries
 
 
+def _get_video_or_404(db: Session, video_id: int, course_id: int | None = None) -> Video:
+    video = db.get(Video, video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    if course_id is not None and video.course_id != course_id:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    return video
+
+
 @router.get("", response_model=list[VideoOut])
 def list_videos(course_id: int, db: Session = Depends(get_db)):
     get_course_or_404(db, course_id)
@@ -151,10 +162,10 @@ def import_playlist(data: PlaylistImportRequest, db: Session = Depends(get_db)):
 
 
 @router.delete("/{video_id}", status_code=204)
-def delete_video(video_id: int, db: Session = Depends(get_db)) -> Response:
-    video = db.get(Video, video_id)
-    if video is None:
-        raise HTTPException(status_code=404, detail="Video not found")
+def delete_video(video_id: int, course_id: int | None = None, db: Session = Depends(get_db)) -> Response:
+    if course_id is not None:
+        get_course_or_404(db, course_id)
+    video = _get_video_or_404(db, video_id, course_id)
 
     db.delete(video)
     db.commit()
