@@ -626,92 +626,267 @@
     .subject-inline-form .btn { padding: 0.3rem 0.65rem; font-size: 0.75rem; height: auto; }
     .progress-insights { margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.22rem; }
 
-    /* Timer */
-    .timer-display { text-align: center; padding: 0; }
-    .timer-time {
-      font-family: var(--font-mono);
-      font-size: 2.4rem;
-      font-weight: 200;
-      color: var(--text);
-      letter-spacing: 0.02em;
-      line-height: 1;
-    }
-    .timer-label { display: none; }
-    .timer-controls { margin-top: 0.85rem; display: flex; justify-content: center; gap: 0.65rem; }
-    .timer-subject-wrap { margin-top: 0.9rem; display: flex; justify-content: center; }
+    /* ============================================================
+       PIXEL POMODORO TIMER
+    ============================================================ */
 
-    /* Timer mode-specific accent */
-    .timer-card[data-mode="focus"] { --timer-accent: var(--timer-focus); --timer-accent-glow: var(--timer-focus-glow); }
-    .timer-card[data-mode="break"] { --timer-accent: var(--timer-break); --timer-accent-glow: var(--timer-break-glow); }
+    /* Mode-specific accent tokens — kept for JS compat */
+    .pomo-card[data-mode="focus"] { --timer-accent: var(--timer-focus); --timer-accent-glow: var(--timer-focus-glow); }
+    .pomo-card[data-mode="break"] { --timer-accent: var(--timer-break); --timer-accent-glow: var(--timer-break-glow); }
 
-    /* Timer mode pill tabs */
-    .timer-mode-tabs {
+    /* Theme picker */
+    .pomo-theme-picker {
       display: flex;
-      gap: 0.25rem;
+      gap: 0.3rem;
       justify-content: center;
-      flex-wrap: wrap;
-      margin-bottom: 1.4rem;
+      margin-bottom: 0.9rem;
     }
-    .timer-tab {
-      font-family: var(--font-body);
-      font-size: 0.72rem;
-      font-weight: 500;
-      padding: 0.28rem 0.8rem;
-      border: 1px solid var(--border-light);
-      border-radius: 100px;
+    .pomo-theme-btn {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.18rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 2px;
       background: transparent;
       color: var(--text-dim);
       cursor: pointer;
-      transition: all 0.18s ease;
-      white-space: nowrap;
+      transition: all 0.15s;
+      image-rendering: pixelated;
     }
-    .timer-tab:hover {
-      border-color: var(--timer-accent, var(--accent));
-      color: var(--timer-accent, var(--accent));
-    }
-    .timer-tab.active {
+    .pomo-theme-btn:hover { border-color: var(--timer-accent, var(--accent)); color: var(--timer-accent, var(--accent)); }
+    .pomo-theme-btn.active {
       background: var(--timer-accent, var(--accent));
       border-color: var(--timer-accent, var(--accent));
       color: #fff;
-      font-weight: 600;
     }
 
-    /* Timer circular ring */
-    .timer-ring-wrap {
+    /* Mascot area */
+    .pomo-mascot-area {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      height: 88px;
+      margin-bottom: 0.35rem;
       position: relative;
-      width: 180px;
-      height: 180px;
-      margin: 0 auto 1.2rem;
+      overflow: visible;
+      transition: height 0.3s ease;
     }
-    .timer-ring-svg {
+    .pomo-mascot-area.theme-minimal { height: 0; margin-bottom: 0; }
+
+    .pomo-sprite-wrap {
+      position: relative;
+      width: 72px;
+      height: 84px;
+      overflow: visible;
+      flex-shrink: 0;
+    }
+    /* Pixel sprite anchor — box-shadow paints the pixels */
+    .pomo-sprite {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 6px;
+      height: 6px;
+      image-rendering: pixelated;
+    }
+
+    /* Mascot animations by state */
+    .pomo-mascot-area[data-state="idle"] .pomo-sprite {
+      animation: pomo-breathe 3.5s ease-in-out infinite;
+    }
+    .pomo-mascot-area[data-state="running"] .pomo-sprite {
+      animation: pomo-run 0.38s ease-in-out infinite alternate;
+    }
+    .pomo-mascot-area[data-state="break"] .pomo-sprite {
+      animation: pomo-sleep 2.4s ease-in-out infinite;
+    }
+    .pomo-mascot-area[data-state="done"] .pomo-sprite {
+      animation: pomo-celebrate 0.42s ease-in-out infinite alternate;
+    }
+
+    /* Floating Zzz */
+    .pomo-zzz {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      opacity: 0;
+      pointer-events: none;
+      top: 10px;
+      right: 8px;
+    }
+    .pomo-zzz:nth-child(2) { font-size: 0.55rem; top: 0; right: 16px; }
+    .pomo-zzz:nth-child(3) { font-size: 0.45rem; top: -8px; right: 10px; }
+    .pomo-mascot-area[data-state="break"] .pomo-zzz:nth-child(1) { animation: pomo-zzz 2.4s 0s ease-in-out infinite; }
+    .pomo-mascot-area[data-state="break"] .pomo-zzz:nth-child(2) { animation: pomo-zzz 2.4s 0.8s ease-in-out infinite; }
+    .pomo-mascot-area[data-state="break"] .pomo-zzz:nth-child(3) { animation: pomo-zzz 2.4s 1.6s ease-in-out infinite; }
+
+    @keyframes pomo-breathe {
+      0%, 100% { transform: translateY(0) scaleX(1); }
+      50% { transform: translateY(-3px) scaleX(1.015); }
+    }
+    @keyframes pomo-run {
+      0%   { transform: translateY(0)   scaleX(1); }
+      100% { transform: translateY(-8px) scaleX(1.06); }
+    }
+    @keyframes pomo-sleep {
+      0%, 100% { transform: rotate(-5deg) translateY(4px); }
+      50%       { transform: rotate(-9deg) translateY(2px); }
+    }
+    @keyframes pomo-celebrate {
+      0%   { transform: translateY(0)   rotate(-4deg) scale(1); }
+      100% { transform: translateY(-11px) rotate(4deg) scale(1.1); }
+    }
+    @keyframes pomo-zzz {
+      0%   { opacity: 0;   transform: translateY(0); }
+      30%  { opacity: 0.65; }
+      100% { opacity: 0;   transform: translateY(-20px); }
+    }
+
+    /* Ring */
+    .pomo-ring-wrap {
+      position: relative;
+      width: 190px;
+      height: 190px;
+      margin: 0 auto 0.85rem;
+    }
+    .pomo-ring-svg {
       width: 100%;
       height: 100%;
       transform: rotate(-90deg);
     }
-    .timer-ring-bg {
+    .pomo-ring-track {
       fill: none;
-      stroke: var(--border-light);
-      stroke-width: 4;
+      stroke: rgba(255,255,255,0.06);
+      stroke-width: 7;
     }
-    .timer-ring-fg {
+    .pomo-ring-progress {
       fill: none;
       stroke: var(--timer-accent, var(--accent));
-      stroke-width: 4;
-      stroke-linecap: round;
+      stroke-width: 7;
+      stroke-linecap: square;
       stroke-dasharray: 376.99;
       stroke-dashoffset: 0;
       transition: stroke-dashoffset 1s linear, stroke 0.4s ease;
-      filter: drop-shadow(0 0 6px var(--timer-accent, var(--accent)));
+      filter: drop-shadow(0 0 8px var(--timer-accent, var(--accent)));
     }
-    .timer-ring-inner {
+    .pomo-ring-inner {
       position: absolute;
       inset: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 0.2rem;
+      gap: 0.3rem;
     }
+    .pomo-time {
+      font-family: var(--font-mono);
+      font-size: 2.6rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.05em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .pomo-mode-label {
+      font-family: var(--font-mono);
+      font-size: 0.52rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--timer-accent, var(--accent));
+      opacity: 0.85;
+    }
+
+    /* Cycle tracker */
+    .pomo-cycles {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      margin-bottom: 0.75rem;
+    }
+    .pomo-cycle-label {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+    }
+    .pomo-cycle-dots { display: flex; gap: 0.3rem; align-items: center; }
+    .pomo-dot {
+      width: 8px;
+      height: 8px;
+      border: 1px solid var(--border-light);
+      background: transparent;
+      transition: all 0.3s ease;
+      image-rendering: pixelated;
+    }
+    .pomo-dot.filled {
+      background: var(--timer-accent, var(--accent));
+      border-color: var(--timer-accent, var(--accent));
+      box-shadow: 0 0 5px var(--timer-accent, var(--accent));
+    }
+
+    /* Mode tabs */
+    .pomo-tabs {
+      display: flex;
+      gap: 0.2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 0.9rem;
+    }
+    .pomo-tab {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      font-weight: 500;
+      padding: 0.22rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      letter-spacing: 0.02em;
+    }
+    .pomo-tab:hover { border-color: var(--timer-accent, var(--accent)); color: var(--timer-accent, var(--accent)); }
+    .pomo-tab.active {
+      background: var(--timer-accent, var(--accent));
+      border-color: var(--timer-accent, var(--accent));
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* Controls */
+    .pomo-controls { display: flex; gap: 0.45rem; justify-content: center; margin-bottom: 0.75rem; }
+    .pomo-btn {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border-light);
+      border-radius: 2px;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-transform: lowercase;
+    }
+    .pomo-btn-start {
+      background: var(--timer-accent, var(--accent));
+      border-color: var(--timer-accent, var(--accent));
+      color: #fff;
+    }
+    .pomo-btn-start:hover { filter: brightness(1.18); }
+    .pomo-btn-reset:hover { border-color: var(--text-muted); color: var(--text); }
+
+    /* Subject wrap */
+    .pomo-subject-wrap { display: flex; justify-content: center; }
 
     /* ============================================================
        TOAST / SNACKBAR SYSTEM
@@ -1545,34 +1720,71 @@
               </div>
             </div>
 
-            <div class="card timer-card" data-mode="focus">
+            <div class="card pomo-card" data-mode="focus" id="pomo-card">
               <div class="card-header">
                 <span class="card-title">Focus Timer</span>
                 <span class="card-badge live" id="timer-badge">Ready</span>
               </div>
-              <div class="timer-mode-tabs">
-                <button class="timer-tab active" data-mode-index="0" onclick="setTimerMode(0)">Pomodoro</button>
-                <button class="timer-tab" data-mode-index="1" onclick="setTimerMode(1)">Short Break</button>
-                <button class="timer-tab" data-mode-index="2" onclick="setTimerMode(2)">Long Break</button>
-                <button class="timer-tab" data-mode-index="3" onclick="setTimerMode(3)">Deep Focus</button>
+
+              <!-- Theme Picker -->
+              <div class="pomo-theme-picker">
+                <button class="pomo-theme-btn active" data-theme="fox" onclick="setPomodoroTheme('fox')">🦊 Fox</button>
+                <button class="pomo-theme-btn" data-theme="cat" onclick="setPomodoroTheme('cat')">🐱 Cat</button>
+                <button class="pomo-theme-btn" data-theme="minimal" onclick="setPomodoroTheme('minimal')">◈ Minimal</button>
               </div>
-              <div class="timer-ring-wrap">
-                <svg class="timer-ring-svg" viewBox="0 0 140 140">
-                  <circle class="timer-ring-bg" cx="70" cy="70" r="60"/>
-                  <circle class="timer-ring-fg" id="timer-ring-fg" cx="70" cy="70" r="60"/>
+
+              <!-- Pixel Mascot -->
+              <div class="pomo-mascot-area" id="pomo-mascot-area" data-state="idle" data-theme="fox">
+                <div class="pomo-sprite-wrap">
+                  <div class="pomo-sprite" id="pomo-sprite"></div>
+                </div>
+                <span class="pomo-zzz">z</span>
+                <span class="pomo-zzz">z</span>
+                <span class="pomo-zzz">z</span>
+              </div>
+
+              <!-- Circular Ring Timer -->
+              <div class="pomo-ring-wrap">
+                <svg class="pomo-ring-svg" viewBox="0 0 140 140">
+                  <circle class="pomo-ring-track" cx="70" cy="70" r="60"/>
+                  <circle class="pomo-ring-progress" id="timer-ring-fg" cx="70" cy="70" r="60"/>
                 </svg>
-                <div class="timer-ring-inner">
-                  <div class="timer-time" id="timer-display">25:00</div>
+                <div class="pomo-ring-inner">
+                  <div class="pomo-time" id="timer-display">25:00</div>
+                  <div class="pomo-mode-label" id="pomo-mode-label">POMODORO</div>
                 </div>
               </div>
-              <div class="timer-subject-wrap">
+
+              <!-- Cycle Tracker -->
+              <div class="pomo-cycles">
+                <span class="pomo-cycle-label">cycle</span>
+                <div class="pomo-cycle-dots" id="pomo-cycle-dots">
+                  <div class="pomo-dot filled"></div>
+                  <div class="pomo-dot"></div>
+                  <div class="pomo-dot"></div>
+                  <div class="pomo-dot"></div>
+                </div>
+              </div>
+
+              <!-- Mode Tabs -->
+              <div class="pomo-tabs">
+                <button class="pomo-tab active" data-mode-index="0" onclick="setTimerMode(0)">pomodoro</button>
+                <button class="pomo-tab" data-mode-index="1" onclick="setTimerMode(1)">short break</button>
+                <button class="pomo-tab" data-mode-index="2" onclick="setTimerMode(2)">long break</button>
+                <button class="pomo-tab" data-mode-index="3" onclick="setTimerMode(3)">deep focus</button>
+              </div>
+
+              <!-- Controls -->
+              <div class="pomo-controls">
+                <button class="pomo-btn pomo-btn-start" id="timer-start" onclick="toggleTimer()">start</button>
+                <button class="pomo-btn pomo-btn-reset" onclick="resetTimer()">reset</button>
+              </div>
+
+              <!-- Subject -->
+              <div class="pomo-subject-wrap">
                 <select class="timer-subject-select" id="timer-subject">
                   <option value="">No subject</option>
                 </select>
-              </div>
-              <div class="timer-controls">
-                <button class="btn primary sm" id="timer-start" onclick="toggleTimer()">Start</button>
-                <button class="btn sm" onclick="resetTimer()">Reset</button>
               </div>
             </div>
 
@@ -2580,6 +2792,138 @@
     }
 
     // ==================================================================
+    //  PIXEL POMODORO — MASCOT & THEME SYSTEM
+    // ==================================================================
+    // Fox sprite: 12 cols × 14 rows, 6px per cell = 72×84px
+    // Each entry: [col, row, colorKey]
+    const FOX_PIXELS = [
+      // Row 0 — ear tips
+      [2,0,'O'],[8,0,'O'],
+      // Row 1 — ears
+      [1,1,'O'],[2,1,'O'],[3,1,'W'],[8,1,'W'],[9,1,'O'],[10,1,'O'],
+      // Row 2 — head top
+      [1,2,'O'],[2,2,'F'],[3,2,'F'],[4,2,'F'],[5,2,'F'],[6,2,'F'],[7,2,'F'],[8,2,'F'],[9,2,'F'],[10,2,'O'],
+      // Row 3 — eyes row
+      [0,3,'O'],[1,3,'O'],[2,3,'F'],[3,3,'E'],[4,3,'F'],[7,3,'F'],[8,3,'E'],[9,3,'F'],[10,3,'O'],[11,3,'O'],
+      // Row 4 — face
+      [0,4,'O'],[1,4,'F'],[2,4,'F'],[3,4,'F'],[4,4,'F'],[5,4,'F'],[6,4,'F'],[7,4,'F'],[8,4,'F'],[9,4,'F'],[10,4,'F'],[11,4,'O'],
+      // Row 5 — nose/muzzle
+      [0,5,'O'],[1,5,'F'],[2,5,'F'],[3,5,'N'],[4,5,'F'],[5,5,'F'],[6,5,'F'],[7,5,'F'],[8,5,'N'],[9,5,'F'],[10,5,'F'],[11,5,'O'],
+      // Row 6 — chin
+      [1,6,'O'],[2,6,'F'],[3,6,'F'],[4,6,'F'],[5,6,'F'],[6,6,'F'],[7,6,'F'],[8,6,'F'],[9,6,'F'],[10,6,'O'],
+      // Row 7 — neck
+      [1,7,'O'],[2,7,'O'],[3,7,'O'],[4,7,'O'],[5,7,'O'],[6,7,'O'],[7,7,'O'],[8,7,'O'],[9,7,'O'],[10,7,'O'],
+      // Row 8 — upper body
+      [0,8,'O'],[1,8,'O'],[2,8,'O'],[3,8,'O'],[4,8,'O'],[5,8,'O'],[6,8,'O'],[7,8,'O'],[8,8,'O'],[9,8,'O'],[10,8,'O'],[11,8,'O'],
+      // Row 9 — chest with belly patches
+      [0,9,'O'],[1,9,'O'],[2,9,'F'],[3,9,'F'],[4,9,'F'],[5,9,'O'],[6,9,'O'],[7,9,'F'],[8,9,'F'],[9,9,'F'],[10,9,'O'],[11,9,'O'],
+      // Row 10 — full belly
+      [0,10,'O'],[1,10,'F'],[2,10,'F'],[3,10,'F'],[4,10,'F'],[5,10,'F'],[6,10,'F'],[7,10,'F'],[8,10,'F'],[9,10,'F'],[10,10,'F'],[11,10,'O'],
+      // Row 11 — lower torso
+      [1,11,'O'],[2,11,'O'],[3,11,'O'],[4,11,'O'],[5,11,'O'],[6,11,'O'],[7,11,'O'],[8,11,'O'],[9,11,'O'],[10,11,'O'],
+      // Row 12 — upper legs
+      [1,12,'O'],[2,12,'O'],[4,12,'O'],[5,12,'O'],[6,12,'O'],[7,12,'O'],[9,12,'O'],[10,12,'O'],
+      // Row 13 — paws
+      [0,13,'O'],[1,13,'O'],[4,13,'O'],[5,13,'O'],[6,13,'O'],[7,13,'O'],[10,13,'O'],[11,13,'O'],
+    ];
+    const FOX_COLORS = { O:'#c8703a', F:'#f0ba85', W:'#fff8f0', E:'#1a1020', N:'#8a3215' };
+
+    // Cat sprite: same 12×14 grid
+    const CAT_PIXELS = [
+      // Row 0 — ear tips
+      [2,0,'B'],[8,0,'B'],
+      // Row 1 — ears
+      [1,1,'B'],[2,1,'B'],[3,1,'b'],[8,1,'b'],[9,1,'B'],[10,1,'B'],
+      // Row 2 — head top
+      [1,2,'B'],[2,2,'b'],[3,2,'b'],[4,2,'b'],[5,2,'b'],[6,2,'b'],[7,2,'b'],[8,2,'b'],[9,2,'b'],[10,2,'B'],
+      // Row 3 — big eye row
+      [0,3,'B'],[1,3,'B'],[2,3,'b'],[3,3,'Y'],[4,3,'b'],[5,3,'b'],[6,3,'b'],[7,3,'b'],[8,3,'Y'],[9,3,'b'],[10,3,'B'],[11,3,'B'],
+      // Row 4 — full eye glow
+      [0,4,'B'],[1,4,'b'],[2,4,'b'],[3,4,'Y'],[4,4,'Y'],[5,4,'b'],[6,4,'b'],[7,4,'Y'],[8,4,'Y'],[9,4,'b'],[10,4,'b'],[11,4,'B'],
+      // Row 5 — nose
+      [0,5,'B'],[1,5,'b'],[2,5,'b'],[3,5,'b'],[4,5,'P'],[5,5,'b'],[6,5,'b'],[7,5,'P'],[8,5,'b'],[9,5,'b'],[10,5,'b'],[11,5,'B'],
+      // Row 6 — white muzzle
+      [1,6,'B'],[2,6,'W'],[3,6,'W'],[4,6,'W'],[5,6,'W'],[6,6,'W'],[7,6,'W'],[8,6,'W'],[9,6,'W'],[10,6,'B'],
+      // Row 7 — neck
+      [1,7,'B'],[2,7,'B'],[3,7,'B'],[4,7,'B'],[5,7,'B'],[6,7,'B'],[7,7,'B'],[8,7,'B'],[9,7,'B'],[10,7,'B'],
+      // Row 8 — body
+      [0,8,'B'],[1,8,'B'],[2,8,'B'],[3,8,'B'],[4,8,'B'],[5,8,'B'],[6,8,'B'],[7,8,'B'],[8,8,'B'],[9,8,'B'],[10,8,'B'],[11,8,'B'],
+      // Row 9 — chest with white patches
+      [0,9,'B'],[1,9,'B'],[2,9,'W'],[3,9,'W'],[4,9,'B'],[5,9,'B'],[6,9,'B'],[7,9,'B'],[8,9,'W'],[9,9,'W'],[10,9,'B'],[11,9,'B'],
+      // Row 10 — white belly
+      [0,10,'B'],[1,10,'W'],[2,10,'W'],[3,10,'W'],[4,10,'W'],[5,10,'W'],[6,10,'W'],[7,10,'W'],[8,10,'W'],[9,10,'W'],[10,10,'W'],[11,10,'B'],
+      // Row 11 — lower torso
+      [1,11,'B'],[2,11,'B'],[3,11,'B'],[4,11,'B'],[5,11,'B'],[6,11,'B'],[7,11,'B'],[8,11,'B'],[9,11,'B'],[10,11,'B'],
+      // Row 12 — upper legs
+      [1,12,'B'],[2,12,'B'],[4,12,'B'],[5,12,'B'],[6,12,'B'],[7,12,'B'],[9,12,'B'],[10,12,'B'],
+      // Row 13 — paws
+      [0,13,'B'],[1,13,'B'],[4,13,'B'],[5,13,'B'],[6,13,'B'],[7,13,'B'],[10,13,'B'],[11,13,'B'],
+    ];
+    const CAT_COLORS = { B:'#b0baca', b:'#8890a2', Y:'#f0d050', W:'#e8ecf8', P:'#d06878' };
+
+    let pomoTheme = 'fox';
+    let pomoCycleCount = 0;
+
+    function buildSpriteBoxShadow(pixels, colors, scale) {
+      return pixels.map(([x, y, c]) =>
+        `${x * scale}px ${y * scale}px 0 0 ${colors[c]}`
+      ).join(',');
+    }
+
+    function renderPomoSprite(theme) {
+      const el = document.getElementById('pomo-sprite');
+      if (!el) return;
+      if (theme === 'fox') {
+        el.style.boxShadow = buildSpriteBoxShadow(FOX_PIXELS, FOX_COLORS, 6);
+      } else if (theme === 'cat') {
+        el.style.boxShadow = buildSpriteBoxShadow(CAT_PIXELS, CAT_COLORS, 6);
+      } else {
+        el.style.boxShadow = 'none';
+      }
+    }
+
+    function setPomodoroTheme(theme) {
+      pomoTheme = theme;
+      // Update picker buttons
+      document.querySelectorAll('.pomo-theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+      });
+      // Show/hide mascot
+      const area = document.getElementById('pomo-mascot-area');
+      if (area) {
+        area.dataset.theme = theme;
+        area.classList.toggle('theme-minimal', theme === 'minimal');
+      }
+      renderPomoSprite(theme);
+      localStorage.setItem('warroom_pomo_theme', theme);
+    }
+
+    function updateMascotState(state) {
+      const area = document.getElementById('pomo-mascot-area');
+      if (area) area.dataset.state = state;
+    }
+
+    function updateModeLabel() {
+      const labels = ['POMODORO', 'SHORT BREAK', 'LONG BREAK', 'DEEP FOCUS'];
+      const el = document.getElementById('pomo-mode-label');
+      if (el) el.textContent = labels[modeIndex] || 'POMODORO';
+    }
+
+    function advanceCycle() {
+      pomoCycleCount = (pomoCycleCount + 1) % 5; // 0–3 then reset at 4
+      const dots = document.querySelectorAll('.pomo-dot');
+      const filled = pomoCycleCount === 0 ? 4 : pomoCycleCount;
+      dots.forEach((d, i) => d.classList.toggle('filled', i < filled));
+      if (pomoCycleCount === 0) {
+        // Full cycle complete — brief celebration then reset
+        setTimeout(() => {
+          dots.forEach(d => { d.classList.remove('filled'); });
+          dots[0].classList.add('filled');
+        }, 1500);
+      }
+    }
+
+    // ==================================================================
     //  FOCUS TIMER  (with localStorage persistence)
     // ==================================================================
     const MODES = [
@@ -2639,10 +2983,12 @@
           // Resume
           timerRunning = true;
           timerInitialSeconds = saved.initialSeconds;
-          document.getElementById('timer-start').textContent = 'Pause';
+          document.getElementById('timer-start').textContent = 'pause';
           document.getElementById('timer-badge').textContent = 'Running';
           document.getElementById('timer-badge').classList.add('live');
           timerInterval = setInterval(timerTick, 1000);
+          const isBreakMode = modeIndex === 1 || modeIndex === 2;
+          updateMascotState(isBreakMode ? 'break' : 'running');
         } else {
           // Completed while away
           localStorage.removeItem('warroom_timer');
@@ -2661,9 +3007,10 @@
         timerRunning = false;
         timerActualStart = null;
         localStorage.removeItem('warroom_timer');
-        document.getElementById('timer-start').textContent = 'Start';
+        document.getElementById('timer-start').textContent = 'start';
         document.getElementById('timer-badge').textContent = 'Done';
         document.getElementById('timer-badge').classList.remove('live');
+        updateMascotState('done');
         onTimerComplete();
         return;
       }
@@ -2686,6 +3033,7 @@
 
     async function onTimerComplete() {
       const isBreak = modeIndex === 1 || modeIndex === 2;
+      if (!isBreak) advanceCycle();
       playCompletionChime(isBreak);
       if (isBreak) {
         showToast('Break over. Time to get back to work.', { type: 'break', title: 'Break complete', icon: '◇', duration: 6000 });
@@ -2713,9 +3061,10 @@
         timerRunning = false;
         timerActualStart = null;
         saveTimerState();
-        document.getElementById('timer-start').textContent = 'Start';
+        document.getElementById('timer-start').textContent = 'start';
         document.getElementById('timer-badge').textContent = 'Paused';
         document.getElementById('timer-badge').classList.remove('live');
+        updateMascotState('idle');
       } else {
         timerRunning = true;
         timerActualStart = Date.now();
@@ -2725,10 +3074,12 @@
           timerInitialSeconds = MODES[modeIndex].time;
         }
         saveTimerState();
-        document.getElementById('timer-start').textContent = 'Pause';
+        document.getElementById('timer-start').textContent = 'pause';
         document.getElementById('timer-badge').textContent = 'Running';
         document.getElementById('timer-badge').classList.add('live');
         timerInterval = setInterval(timerTick, 1000);
+        const isBreak = modeIndex === 1 || modeIndex === 2;
+        updateMascotState(isBreak ? 'break' : 'running');
       }
       displayTimer();
     }
@@ -2742,17 +3093,18 @@
       localStorage.removeItem('warroom_timer');
       updateTimerTabUI(modeIndex);
       displayTimer();
-      document.getElementById('timer-start').textContent = 'Start';
+      document.getElementById('timer-start').textContent = 'start';
       document.getElementById('timer-badge').textContent = 'Ready';
       document.getElementById('timer-badge').classList.remove('live');
+      updateMascotState('idle');
     }
 
     function updateTimerTabUI(index) {
-      document.querySelectorAll('.timer-tab').forEach((tab, i) => {
+      document.querySelectorAll('.pomo-tab').forEach((tab, i) => {
         tab.classList.toggle('active', i === index);
       });
       const isBreak = index === 1 || index === 2;
-      const card = document.querySelector('.timer-card');
+      const card = document.querySelector('.pomo-card');
       if (card) card.dataset.mode = isBreak ? 'break' : 'focus';
     }
 
@@ -2766,9 +3118,11 @@
       timerInitialSeconds = MODES[modeIndex].time;
       updateTimerTabUI(modeIndex);
       displayTimer();
-      document.getElementById('timer-start').textContent = 'Start';
+      updateModeLabel();
+      document.getElementById('timer-start').textContent = 'start';
       document.getElementById('timer-badge').textContent = 'Ready';
       document.getElementById('timer-badge').classList.remove('live');
+      updateMascotState('idle');
     }
 
     function switchTimerMode() { setTimerMode((modeIndex + 1) % MODES.length); }
@@ -4195,6 +4549,9 @@
     async function init() {
       await checkJoinToken();
       applySidebarState(localStorage.getItem('warroom_sidebar') === 'collapsed', false);
+      // Restore saved pomodoro theme, then render sprite
+      const savedTheme = localStorage.getItem('warroom_pomo_theme') || 'fox';
+      setPomodoroTheme(savedTheme);
       displayTimer();
       await loadCourses();
       await loadSidebarCounts();
